@@ -25,6 +25,9 @@ namespace AstroModIntegrator
         [JsonProperty("name")]
         public string Name;
 
+        [JsonProperty("mod_id")]
+        public string ModID;
+
         [JsonProperty("author")]
         [DefaultValue("")]
         public string Author;
@@ -48,10 +51,6 @@ namespace AstroModIntegrator
         [JsonProperty("homepage")]
         [DefaultValue("")]
         public string Homepage;
-
-        [JsonProperty("download_url")]
-        [DefaultValue("")]
-        public string DownloadURL;
 
         [JsonProperty("linked_actor_components")]
         public Dictionary<string, List<string>> LinkedActorComponents;
