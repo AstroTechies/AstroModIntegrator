@@ -1,0 +1,184 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Security.Cryptography;
+using System.Text;
+using Newtonsoft.Json;
+using UAssetAPI;
+
+namespace AstroModIntegrator
+{
+    public struct Block
+    {
+        public ulong Start;
+        public ulong Size;
+
+        public Block(ulong start, ulong size)
+        {
+            Start = start;
+            Size = size;
+        }
+    }
+
+    public class Record
+    {
+        public string fileName;
+        public ulong offset;
+        public ulong fileSize;
+        public ulong sizeDecompressed;
+        public CompressionMethod compressionMethod;
+        public bool isEncrypted;
+        public uint compressionBlockSize;
+        public List<Block> compressionBlocks;
+
+        public void Read(BinaryReader reader, uint fileVersion, bool includesHeader)
+        {
+            if (includesHeader) fileName = reader.ReadUString();
+            offset = reader.ReadUInt64();
+            fileSize = reader.ReadUInt64();
+            sizeDecompressed = reader.ReadUInt64();
+            compressionMethod = (CompressionMethod)reader.ReadUInt32();
+
+            if (fileVersion <= 1)
+            {
+                ulong timestamp = reader.ReadUInt64();
+            }
+
+            reader.ReadBytes(20); // sha1 hash
+
+            if (fileVersion >= 3)
+            {
+                if (compressionMethod != 0)
+                {
+                    compressionBlocks = new List<Block>();
+                    uint blockCount = reader.ReadUInt32();
+                    for (int j = 0; j < blockCount; j++)
+                    {
+                        ulong startOffset = reader.ReadUInt64();
+                        ulong endOffset = reader.ReadUInt64();
+                        compressionBlocks.Add(new Block(startOffset, endOffset - startOffset));
+                    }
+                }
+
+                isEncrypted = reader.ReadByte() > 0;
+                compressionBlockSize = reader.ReadUInt32();
+            }
+        }
+
+        public void Write(BinaryWriter writer, byte[] data, bool includesHeader) // fileVersion is 4
+        {
+            if (includesHeader) writer.WriteUString(fileName);
+            writer.Write(offset);
+            writer.Write((ulong)data.Length);
+            writer.Write((ulong)data.Length);
+            writer.Write((int)CompressionMethod.NONE);
+            writer.Write(new SHA1Managed().ComputeHash(data));
+            writer.Write((byte)0); // not encrypted
+            writer.Write((int)0); // no compressed blocks
+        }
+
+        public Record()
+        {
+
+        }
+    }
+
+    public enum CompressionMethod
+    {
+        NONE,
+        ZLIB,
+        BIAS_MEMORY,
+        BIAS_SPEED
+    }
+
+    public class InvalidFileTypeException : IOException
+    {
+        public InvalidFileTypeException(string txt) : base(txt)
+        {
+
+        }
+    }
+
+    public static class MetadataExtractor
+    {
+        private static string Read(BinaryReader reader)
+        {
+            reader.BaseStream.Seek(-44, SeekOrigin.End); // First we head straight to the footer
+
+            if (reader.ReadUInt32() != 0x5A6F12E1) // Magic number
+            {
+                throw new InvalidFileTypeException("Invalid file format");
+            }
+
+            uint fileVersion = reader.ReadUInt32();
+            ulong indexOffset = reader.ReadUInt64();
+            ulong indexSize = reader.ReadUInt64();
+
+            reader.BaseStream.Seek((long)indexOffset, SeekOrigin.Begin);
+            string mountPoint = reader.ReadUString();
+            int recordCount = reader.ReadInt32();
+
+            for (int i = 0; i < recordCount; i++)
+            {
+                var rec = new Record();
+                rec.Read(reader, fileVersion, true);
+                if (rec.fileName.Equals("metadata.json")) // The file is called metadata.json and is at the root directory, so it is what we're looking for
+                {
+                    reader.BaseStream.Seek((long)rec.offset, SeekOrigin.Begin);
+
+                    // I don't know why there's a second record but there is, so we read it out
+                    var rec2 = new Record();
+                    rec2.Read(reader, fileVersion, false);
+
+                    switch (rec.compressionMethod)
+                    {
+                        case CompressionMethod.NONE:
+                            return Encoding.UTF8.GetString(reader.ReadBytes((int)rec2.fileSize));
+                        case CompressionMethod.ZLIB:
+                            MemoryStream fullStream = new MemoryStream();
+                            foreach (Block block in rec2.compressionBlocks)
+                            {
+                                ulong blockOffset = block.Start;
+                                ulong blockSize = block.Size;
+
+                                reader.BaseStream.Seek((long)blockOffset, SeekOrigin.Begin);
+                                var memStream = new MemoryStream(reader.ReadBytes((int)blockSize));
+                                memStream.ReadByte();
+                                memStream.ReadByte();
+                                using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
+                                {
+                                    fullStream.Seek(0, SeekOrigin.End);
+                                    decompressionStream.CopyTo(fullStream);
+                                }
+                            }
+
+                            return Encoding.UTF8.GetString(fullStream.ToArray());
+                        default:
+                            throw new NotImplementedException("Unimplemented compression method " + rec.compressionMethod);
+                    }
+                }
+            }
+
+            return string.Empty;
+        }
+
+        public static Metadata Read(string path)
+        {
+            using (FileStream f = new FileStream(path, FileMode.Open, FileAccess.Read))
+            {
+                string data = Read(new BinaryReader(f));
+                if (string.IsNullOrEmpty(data)) return null;
+                try
+                {
+                    return JsonConvert.DeserializeObject<Metadata>(data);
+                }
+                catch (JsonReaderException)
+                {
+                    return null;
+                }
+            }
+        }
+    }
+}
