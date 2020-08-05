@@ -69,7 +69,7 @@
     <Compile Include="Metadata.cs" />
     <Compile Include="MetadataExtractor.cs" />
     <Compile Include="PakBaker.cs" />
-    <Compile Include="PlayControllerInstanceBaker.cs" />
+    <Compile Include="ActorBaker.cs" />
     <Compile Include="ModIntegrator.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
@@ -79,11 +79,12 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="LICENSE" />
     <None Include="packages.config">
       <SubType>Designer</SubType>
     </None>
+    <None Include="README.md" />
     <None Include="Resources\ActorTemplate.uasset" />
-    <None Include="Resources\PlayControllerInstance.uasset" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">

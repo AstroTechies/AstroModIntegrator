@@ -22,23 +22,38 @@ namespace AstroModIntegrator
 
     public class Metadata
     {
-        public string name;
+        [JsonProperty("name")]
+        public string Name;
 
+        [JsonProperty("author")]
         [DefaultValue("")]
-        public string author;
+        public string Author;
 
+        [JsonProperty("description")]
         [DefaultValue("")]
-        public string description;
+        public string Description;
 
+        [JsonProperty("version")]
         [JsonConverter(typeof(VersionConverter))]
-        public Version version;
+        public Version ModVersion;
 
+        [JsonProperty("astro_build")]
         [JsonConverter(typeof(VersionConverter))]
-        public Version astro_build;
+        public Version AstroVersion;
 
+        [JsonProperty("sync")]
         [JsonConverter(typeof(StringEnumConverter))]
-        public SyncMode sync;
+        public SyncMode Sync;
 
-        public string[] linked_actor_components;
+        [JsonProperty("homepage")]
+        [DefaultValue("")]
+        public string Homepage;
+
+        [JsonProperty("download_url")]
+        [DefaultValue("")]
+        public string DownloadURL;
+
+        [JsonProperty("linked_actor_components")]
+        public Dictionary<string, List<string>> LinkedActorComponents;
     }
 }

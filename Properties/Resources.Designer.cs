@@ -69,15 +69,5 @@ namespace AstroModIntegrator.Properties {
                 return ((byte[])(obj));
             }
         }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
-        internal static byte[] PlayControllerInstance {
-            get {
-                object obj = ResourceManager.GetObject("PlayControllerInstance", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
     }
 }

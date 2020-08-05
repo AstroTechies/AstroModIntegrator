@@ -10,13 +10,13 @@ using UAssetAPI.StructTypes;
 
 namespace AstroModIntegrator
 {
-    public class PlayControllerInstanceBaker
+    public class ActorBaker
     {
         private readonly CategoryReference refData1B; // ObjectProperty
         private readonly CategoryReference refData2B; // Template category
         private readonly CategoryReference refData3B; // SCS_Node
 
-        public PlayControllerInstanceBaker()
+        public ActorBaker()
         {
             AssetReader y = new AssetReader(new BinaryReader(new MemoryStream(Properties.Resources.ActorTemplate)));
             refData1B = y.categories[6].ReferenceData;
@@ -24,15 +24,15 @@ namespace AstroModIntegrator
             refData3B = y.categories[10].ReferenceData;
         }
 
-        public MemoryStream Bake(string[] newComponents)
+        public MemoryStream Bake(string[] newComponents, byte[] superRawData)
         {
-            BinaryReader yReader = new BinaryReader(new MemoryStream(Properties.Resources.PlayControllerInstance));
+            BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
             AssetWriter y = new AssetWriter
             {
                 WillStoreOriginalCopyInMemory = true, WillWriteSectionSix = true, data = new AssetReader()
             };
             y.data.Read(yReader);
-            y.OriginalCopy = Properties.Resources.PlayControllerInstance;
+            y.OriginalCopy = superRawData;
 
             int scsLocation = -1;
             int bgcLocation = -1;
@@ -59,12 +59,11 @@ namespace AstroModIntegrator
             int scsNodeLink = y.data.SearchForLink((ulong)y.data.SearchHeaderReference("/Script/CoreUObject"), (ulong)y.data.SearchHeaderReference("Class"), (ulong)y.data.SearchHeaderReference("SCS_Node"));
             byte[] noneRef = BitConverter.GetBytes((long)y.data.SearchHeaderReference("None"));
 
-            int numCount = -1;
+            y.data.AddHeaderReference("bAutoActivate");
             foreach (string componentPath in newComponents)
             {
                 string component = Path.GetFileNameWithoutExtension(componentPath);
 
-                numCount++;
                 CategoryReference refData1 = new CategoryReference(refData1B);
                 CategoryReference refData2 = new CategoryReference(refData2B);
                 CategoryReference refData3 = new CategoryReference(refData3B);

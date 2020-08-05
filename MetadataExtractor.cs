@@ -101,10 +101,22 @@ namespace AstroModIntegrator
         }
     }
 
-    public static class MetadataExtractor
+    public class MetadataExtractor
     {
-        private static string Read(BinaryReader reader)
+        private BinaryReader reader;
+        public Dictionary<string, long> PathToOffset;
+
+        public MetadataExtractor(BinaryReader reader)
         {
+            this.reader = reader;
+            BuildDict();
+        }
+
+        private uint fileVersion;
+        private void BuildDict()
+        {
+            PathToOffset = new Dictionary<string, long>();
+
             reader.BaseStream.Seek(-44, SeekOrigin.End); // First we head straight to the footer
 
             if (reader.ReadUInt32() != 0x5A6F12E1) // Magic number
@@ -112,7 +124,7 @@ namespace AstroModIntegrator
                 throw new InvalidFileTypeException("Invalid file format");
             }
 
-            uint fileVersion = reader.ReadUInt32();
+            fileVersion = reader.ReadUInt32();
             ulong indexOffset = reader.ReadUInt64();
             ulong indexSize = reader.ReadUInt64();
 
@@ -124,60 +136,56 @@ namespace AstroModIntegrator
             {
                 var rec = new Record();
                 rec.Read(reader, fileVersion, true);
-                if (rec.fileName.Equals("metadata.json")) // The file is called metadata.json and is at the root directory, so it is what we're looking for
-                {
-                    reader.BaseStream.Seek((long)rec.offset, SeekOrigin.Begin);
-
-                    // I don't know why there's a second record but there is, so we read it out
-                    var rec2 = new Record();
-                    rec2.Read(reader, fileVersion, false);
-
-                    switch (rec.compressionMethod)
-                    {
-                        case CompressionMethod.NONE:
-                            return Encoding.UTF8.GetString(reader.ReadBytes((int)rec2.fileSize));
-                        case CompressionMethod.ZLIB:
-                            MemoryStream fullStream = new MemoryStream();
-                            foreach (Block block in rec2.compressionBlocks)
-                            {
-                                ulong blockOffset = block.Start;
-                                ulong blockSize = block.Size;
-
-                                reader.BaseStream.Seek((long)blockOffset, SeekOrigin.Begin);
-                                var memStream = new MemoryStream(reader.ReadBytes((int)blockSize));
-                                memStream.ReadByte();
-                                memStream.ReadByte();
-                                using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
-                                {
-                                    fullStream.Seek(0, SeekOrigin.End);
-                                    decompressionStream.CopyTo(fullStream);
-                                }
-                            }
-
-                            return Encoding.UTF8.GetString(fullStream.ToArray());
-                        default:
-                            throw new NotImplementedException("Unimplemented compression method " + rec.compressionMethod);
-                    }
-                }
+                PathToOffset.Add(rec.fileName, (long)rec.offset);
             }
-
-            return string.Empty;
         }
 
-        public static Metadata Read(string path)
+        public byte[] ReadRaw(string searchPath)
         {
-            using (FileStream f = new FileStream(path, FileMode.Open, FileAccess.Read))
+            if (!PathToOffset.ContainsKey(searchPath)) return new byte[0];
+            reader.BaseStream.Seek(PathToOffset[searchPath], SeekOrigin.Begin);
+            var rec2 = new Record();
+            rec2.Read(reader, fileVersion, false);
+
+            switch (rec2.compressionMethod)
             {
-                string data = Read(new BinaryReader(f));
-                if (string.IsNullOrEmpty(data)) return null;
-                try
-                {
-                    return JsonConvert.DeserializeObject<Metadata>(data);
-                }
-                catch (JsonReaderException)
-                {
-                    return null;
-                }
+                case CompressionMethod.NONE:
+                    return reader.ReadBytes((int)rec2.fileSize);
+                case CompressionMethod.ZLIB:
+                    MemoryStream fullStream = new MemoryStream();
+                    foreach (Block block in rec2.compressionBlocks)
+                    {
+                        ulong blockOffset = block.Start;
+                        ulong blockSize = block.Size;
+
+                        reader.BaseStream.Seek((long)blockOffset, SeekOrigin.Begin);
+                        var memStream = new MemoryStream(reader.ReadBytes((int)blockSize));
+                        memStream.ReadByte();
+                        memStream.ReadByte();
+                        using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
+                        {
+                            fullStream.Seek(0, SeekOrigin.End);
+                            decompressionStream.CopyTo(fullStream);
+                        }
+                    }
+
+                    return fullStream.ToArray();
+                default:
+                    throw new NotImplementedException("Unimplemented compression method " + rec2.compressionMethod);
+            }
+        }
+
+        public Metadata Read()
+        {
+            string data = Encoding.UTF8.GetString(ReadRaw("metadata.json"));
+            if (string.IsNullOrEmpty(data)) return null;
+            try
+            {
+                return JsonConvert.DeserializeObject<Metadata>(data);
+            }
+            catch (JsonReaderException)
+            {
+                return null;
             }
         }
     }
