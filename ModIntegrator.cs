@@ -52,10 +52,9 @@ namespace AstroModIntegrator
             Dictionary<string, byte[]> createdPakData = new Dictionary<string, byte[]>
             {
                 { "metadata.json", Encoding.UTF8.GetBytes(decidedNewMetadata) },
-                //{ "Astro/Content/Globals/PlayControllerInstance.uasset", actorBaker.Bake(newComponents.ToArray()).ToArray()}
             };
-
-            string realPakPath = Path.Combine(installPath, "Astro-WindowsNoEditor.pak");
+            
+            string realPakPath = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly)[0];
             using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
             {
                 MetadataExtractor ourExtractor = new MetadataExtractor(new BinaryReader(f));
