@@ -128,6 +128,13 @@ namespace AstroModIntegrator
             ulong indexOffset = reader.ReadUInt64();
             ulong indexSize = reader.ReadUInt64();
 
+            // First we read the first file record to see if everything is OK
+            reader.BaseStream.Seek(0, SeekOrigin.Begin);
+            var firstRec = new Record();
+            firstRec.Read(reader, fileVersion, false);
+            if (firstRec.isEncrypted) throw new NotImplementedException("Encryption is not supported");
+
+            // Start reading the proper index
             reader.BaseStream.Seek((long)indexOffset, SeekOrigin.Begin);
             string mountPoint = reader.ReadUString();
             int recordCount = reader.ReadInt32();
@@ -140,13 +147,18 @@ namespace AstroModIntegrator
             }
         }
 
+        public bool HasPath(string searchPath)
+        {
+            return PathToOffset.ContainsKey(searchPath);
+        }
+
         public byte[] ReadRaw(string searchPath)
         {
-            if (!PathToOffset.ContainsKey(searchPath)) return new byte[0];
+            if (!HasPath(searchPath)) return new byte[0];
             reader.BaseStream.Seek(PathToOffset[searchPath], SeekOrigin.Begin);
             var rec2 = new Record();
             rec2.Read(reader, fileVersion, false);
-
+            
             switch (rec2.compressionMethod)
             {
                 case CompressionMethod.NONE:

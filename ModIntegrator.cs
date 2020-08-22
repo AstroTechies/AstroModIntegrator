@@ -54,26 +54,40 @@ namespace AstroModIntegrator
                 { "metadata.json", Encoding.UTF8.GetBytes(decidedNewMetadata) },
             };
             
-            string realPakPath = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly)[0];
-            using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
+            string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
+            foreach (string realPakPath in realPakPaths)
             {
-                MetadataExtractor ourExtractor = new MetadataExtractor(new BinaryReader(f));
-                foreach (KeyValuePair<string, List<string>> entry in newComponents)
+                using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
                 {
-                    string establishedPath = entry.Key;
-                    if (!establishedPath.Substring(0, 5).Equals("/Game")) continue;
-                    establishedPath = Path.ChangeExtension("Astro/Content" + establishedPath.Substring(5), ".uasset");
-                    byte[] actorData = ourExtractor.ReadRaw(establishedPath);
+                    MetadataExtractor ourExtractor;
                     try
                     {
-                        createdPakData.Add(establishedPath, actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray());
+                        ourExtractor = new MetadataExtractor(new BinaryReader(f));
                     }
-                    catch (Exception ex)
+                    catch
                     {
-                        Debug.WriteLine(ex.ToString());
+                        continue;
+                    }
+                    foreach (KeyValuePair<string, List<string>> entry in newComponents)
+                    {
+                        string establishedPath = entry.Key;
+                        if (!establishedPath.Substring(0, 5).Equals("/Game")) continue;
+                        establishedPath = Path.ChangeExtension("Astro/Content" + establishedPath.Substring(5), ".uasset");
+
+                        if (!ourExtractor.HasPath(establishedPath)) continue;
+                        try
+                        {
+                            byte[] actorData = ourExtractor.ReadRaw(establishedPath);
+                            createdPakData.Add(establishedPath, actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray());
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.WriteLine(ex.ToString());
+                        }
                     }
                 }
             }
+            
 
             byte[] pakData = PakBaker.Bake(createdPakData);
 
