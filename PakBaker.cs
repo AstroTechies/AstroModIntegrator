@@ -37,7 +37,7 @@ namespace AstroModIntegrator
             ulong indexEndOffset = (ulong)writer.BaseStream.Position;
             ulong indexLength = indexEndOffset - indexOffset;
             writer.Write((byte)0);
-            writer.Write(0x5A6F12E1); // magic number
+            writer.Write(MetadataExtractor.UE4_PAK_MAGIC); // magic number
             writer.Write((int)4); // type 4
             writer.Write(indexOffset);
             writer.Write(indexLength);

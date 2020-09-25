@@ -103,7 +103,7 @@ namespace AstroModIntegrator
 
     public class MetadataExtractor
     {
-        private static uint UE4_PAK_MAGIC = 0x5A6F12E1;
+        internal static uint UE4_PAK_MAGIC = 0x5A6F12E1;
         private uint fileVersion;
         private BinaryReader reader;
         public Dictionary<string, long> PathToOffset;
@@ -123,13 +123,7 @@ namespace AstroModIntegrator
             uint magic = reader.ReadUInt32();
             if (magic != UE4_PAK_MAGIC) // Magic number
             {
-                reader.BaseStream.Seek(0, SeekOrigin.End);
-                while (magic == 0)
-                {
-                    reader.BaseStream.Seek(-5, SeekOrigin.Current);
-                    magic = reader.ReadUInt32();
-                }
-                reader.BaseStream.Seek(reader.BaseStream.Position - 7 - 44, SeekOrigin.Begin);
+                reader.BaseStream.Seek(-160 - 44, SeekOrigin.End);
                 magic = reader.ReadUInt32();
                 if (magic != UE4_PAK_MAGIC) throw new InvalidFileTypeException("Invalid file format, magic = " + magic);
             }
