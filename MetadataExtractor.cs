@@ -103,6 +103,8 @@ namespace AstroModIntegrator
 
     public class MetadataExtractor
     {
+        private static uint UE4_PAK_MAGIC = 0x5A6F12E1;
+        private uint fileVersion;
         private BinaryReader reader;
         public Dictionary<string, long> PathToOffset;
 
@@ -112,16 +114,24 @@ namespace AstroModIntegrator
             BuildDict();
         }
 
-        private uint fileVersion;
         private void BuildDict()
         {
             PathToOffset = new Dictionary<string, long>();
 
             reader.BaseStream.Seek(-44, SeekOrigin.End); // First we head straight to the footer
 
-            if (reader.ReadUInt32() != 0x5A6F12E1) // Magic number
+            uint magic = reader.ReadUInt32();
+            if (magic != UE4_PAK_MAGIC) // Magic number
             {
-                throw new InvalidFileTypeException("Invalid file format");
+                reader.BaseStream.Seek(0, SeekOrigin.End);
+                while (magic == 0)
+                {
+                    reader.BaseStream.Seek(-5, SeekOrigin.Current);
+                    magic = reader.ReadUInt32();
+                }
+                reader.BaseStream.Seek(reader.BaseStream.Position - 7 - 44, SeekOrigin.Begin);
+                magic = reader.ReadUInt32();
+                if (magic != UE4_PAK_MAGIC) throw new InvalidFileTypeException("Invalid file format, magic = " + magic);
             }
 
             fileVersion = reader.ReadUInt32();
@@ -155,10 +165,11 @@ namespace AstroModIntegrator
         public byte[] ReadRaw(string searchPath)
         {
             if (!HasPath(searchPath)) return new byte[0];
-            reader.BaseStream.Seek(PathToOffset[searchPath], SeekOrigin.Begin);
+            long fullOffset = PathToOffset[searchPath];
+            reader.BaseStream.Seek(fullOffset, SeekOrigin.Begin);
             var rec2 = new Record();
             rec2.Read(reader, fileVersion, false);
-            
+
             switch (rec2.compressionMethod)
             {
                 case CompressionMethod.NONE:
@@ -169,8 +180,14 @@ namespace AstroModIntegrator
                     {
                         ulong blockOffset = block.Start;
                         ulong blockSize = block.Size;
-
-                        reader.BaseStream.Seek((long)blockOffset, SeekOrigin.Begin);
+                        if (fileVersion == 8) // Relative offset
+                        {
+                            reader.BaseStream.Seek((long)blockOffset + fullOffset, SeekOrigin.Begin);
+                        }
+                        else // Absolute offset
+                        {
+                            reader.BaseStream.Seek((long)blockOffset, SeekOrigin.Begin);
+                        }
                         var memStream = new MemoryStream(reader.ReadBytes((int)blockSize));
                         memStream.ReadByte();
                         memStream.ReadByte();

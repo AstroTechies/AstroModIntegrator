@@ -106,6 +106,7 @@ namespace AstroModIntegrator
                     0x00,
                 });
                 rawData.AddRange(noneRef);
+                rawData.Add((byte)0);
                 rawData.AddRange(BitConverter.GetBytes((int)bigNewLink));
 
                 refData1.link = bgcLocation + 1; // BlueprintGeneratedClass category
