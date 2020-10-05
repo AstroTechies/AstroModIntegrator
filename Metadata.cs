@@ -40,10 +40,6 @@ namespace AstroModIntegrator
         [JsonConverter(typeof(VersionConverter))]
         public Version ModVersion;
 
-        [JsonProperty("astro_build")]
-        [JsonConverter(typeof(VersionConverter))]
-        public Version AstroVersion;
-
         [JsonProperty("sync")]
         [JsonConverter(typeof(StringEnumConverter))]
         public SyncMode Sync;
@@ -54,5 +50,8 @@ namespace AstroModIntegrator
 
         [JsonProperty("linked_actor_components")]
         public Dictionary<string, List<string>> LinkedActorComponents;
+
+        [JsonProperty("item_list_entries")]
+        public Dictionary<string, Dictionary<string, List<string>>> ItemListEntries;
     }
 }

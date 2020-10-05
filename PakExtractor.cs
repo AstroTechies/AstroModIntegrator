@@ -1,21 +1,20 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
-using Newtonsoft.Json;
 using UAssetAPI;
 
 namespace AstroModIntegrator
 {
     public struct Block
     {
-        public ulong Start;
-        public ulong Size;
+        public long Start;
+        public long Size;
 
-        public Block(ulong start, ulong size)
+        public Block(long start, long size)
         {
             Start = start;
             Size = size;
@@ -25,20 +24,21 @@ namespace AstroModIntegrator
     public class Record
     {
         public string fileName;
-        public ulong offset;
-        public ulong fileSize;
-        public ulong sizeDecompressed;
+        public long offset;
+        public long fileSize;
+        public long sizeDecompressed;
         public CompressionMethod compressionMethod;
         public bool isEncrypted;
         public uint compressionBlockSize;
         public List<Block> compressionBlocks;
+        public byte[] dataHash;
 
         public void Read(BinaryReader reader, uint fileVersion, bool includesHeader)
         {
             if (includesHeader) fileName = reader.ReadUString();
-            offset = reader.ReadUInt64();
-            fileSize = reader.ReadUInt64();
-            sizeDecompressed = reader.ReadUInt64();
+            offset = reader.ReadInt64();
+            fileSize = reader.ReadInt64();
+            sizeDecompressed = reader.ReadInt64();
             compressionMethod = (CompressionMethod)reader.ReadUInt32();
 
             if (fileVersion <= 1)
@@ -46,37 +46,84 @@ namespace AstroModIntegrator
                 ulong timestamp = reader.ReadUInt64();
             }
 
-            reader.ReadBytes(20); // sha1 hash
+            dataHash = reader.ReadBytes(20); // sha1 hash
 
             if (fileVersion >= 3)
             {
-                if (compressionMethod != 0)
+                if (compressionMethod != CompressionMethod.NONE)
                 {
                     compressionBlocks = new List<Block>();
                     uint blockCount = reader.ReadUInt32();
                     for (int j = 0; j < blockCount; j++)
                     {
-                        ulong startOffset = reader.ReadUInt64();
-                        ulong endOffset = reader.ReadUInt64();
+                        long startOffset = reader.ReadInt64();
+                        long endOffset = reader.ReadInt64();
                         compressionBlocks.Add(new Block(startOffset, endOffset - startOffset));
                     }
                 }
 
-                isEncrypted = reader.ReadByte() > 0;
-                compressionBlockSize = reader.ReadUInt32();
+                isEncrypted = reader.ReadBoolean();
+                compressionBlockSize = reader.ReadUInt32(); // max size of each block
             }
         }
 
-        public void Write(BinaryWriter writer, byte[] data, bool includesHeader) // fileVersion is 4
+        public void Write(BinaryWriter writer, byte[] data, bool includesHeader, bool autoAdjustBlocks, List<Block> blockOffsets = null, byte[] compressedData = null) // fileVersion is 4
         {
+            if (autoAdjustBlocks)
+            {
+                fileSize = compressedData.Length;
+                sizeDecompressed = data.Length;
+                compressionMethod = CompressionMethod.ZLIB;
+                dataHash = new SHA1Managed().ComputeHash(compressedData);
+            }
+
             if (includesHeader) writer.WriteUString(fileName);
             writer.Write(offset);
-            writer.Write((ulong)data.Length);
-            writer.Write((ulong)data.Length);
-            writer.Write((int)CompressionMethod.NONE);
-            writer.Write(new SHA1Managed().ComputeHash(data));
+            writer.Write(fileSize); // normal size
+            writer.Write(sizeDecompressed); // decompressed size
+            writer.Write((int)compressionMethod);
+
+            writer.Write(dataHash);
+            long blockOffsetWritingStart = 0;
+            if (autoAdjustBlocks)
+            {
+                writer.Write(blockOffsets.Count);
+                blockOffsetWritingStart = writer.BaseStream.Position;
+                foreach (Block b in blockOffsets)
+                {
+                    writer.Write(b.Start);
+                    writer.Write(b.Start + b.Size);
+                }
+            }
+            else
+            {
+                writer.Write(compressionBlocks.Count);
+                foreach (Block b in compressionBlocks)
+                {
+                    writer.Write(b.Start);
+                    writer.Write(b.Start + b.Size);
+                }
+            }
             writer.Write((byte)0); // not encrypted
-            writer.Write((int)0); // no compressed blocks
+            writer.Write((int)sizeDecompressed);
+
+            if (autoAdjustBlocks)
+            {
+                long endOffset = writer.BaseStream.Position;
+                writer.Seek((int)blockOffsetWritingStart, SeekOrigin.Begin);
+
+                compressionBlocks = new List<Block>();
+                for (int i = 0; i < blockOffsets.Count; i++)
+                {
+                    long newStart = endOffset + blockOffsets[i].Start;
+                    long newEnd = endOffset + blockOffsets[i].Start + blockOffsets[i].Size;
+                    writer.Write(newStart);
+                    writer.Write(newEnd);
+                    compressionBlocks.Add(new Block(newStart, newEnd - newStart));
+                }
+
+                writer.Seek((int)endOffset, SeekOrigin.Begin);
+            }
         }
 
         public Record()
@@ -101,14 +148,14 @@ namespace AstroModIntegrator
         }
     }
 
-    public class MetadataExtractor
+    public class PakExtractor
     {
         internal static uint UE4_PAK_MAGIC = 0x5A6F12E1;
         private uint fileVersion;
         private BinaryReader reader;
         public Dictionary<string, long> PathToOffset;
 
-        public MetadataExtractor(BinaryReader reader)
+        public PakExtractor(BinaryReader reader)
         {
             this.reader = reader;
             BuildDict();
@@ -123,7 +170,7 @@ namespace AstroModIntegrator
             uint magic = reader.ReadUInt32();
             if (magic != UE4_PAK_MAGIC) // Magic number
             {
-                reader.BaseStream.Seek(-160 - 44, SeekOrigin.End);
+                reader.BaseStream.Seek(-204, SeekOrigin.End);
                 magic = reader.ReadUInt32();
                 if (magic != UE4_PAK_MAGIC) throw new InvalidFileTypeException("Invalid file format, magic = " + magic);
             }
@@ -172,8 +219,8 @@ namespace AstroModIntegrator
                     MemoryStream fullStream = new MemoryStream();
                     foreach (Block block in rec2.compressionBlocks)
                     {
-                        ulong blockOffset = block.Start;
-                        ulong blockSize = block.Size;
+                        long blockOffset = block.Start;
+                        long blockSize = block.Size;
                         if (fileVersion == 8) // Relative offset
                         {
                             reader.BaseStream.Seek((long)blockOffset + fullOffset, SeekOrigin.Begin);
@@ -198,7 +245,7 @@ namespace AstroModIntegrator
             }
         }
 
-        public Metadata Read()
+        public Metadata ReadMetadata()
         {
             string data = Encoding.UTF8.GetString(ReadRaw("metadata.json"));
             if (string.IsNullOrEmpty(data)) return null;

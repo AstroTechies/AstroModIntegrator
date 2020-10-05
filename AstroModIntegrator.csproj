@@ -66,8 +66,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ItemListBaker.cs" />
     <Compile Include="Metadata.cs" />
-    <Compile Include="MetadataExtractor.cs" />
+    <Compile Include="PakExtractor.cs" />
     <Compile Include="PakBaker.cs" />
     <Compile Include="ActorBaker.cs" />
     <Compile Include="ModIntegrator.cs" />
@@ -77,6 +78,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <Compile Include="IntegratorUtils.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="LICENSE" />
