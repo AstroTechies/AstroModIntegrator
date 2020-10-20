@@ -1,23 +1,43 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using System.Runtime.Serialization;
 
 namespace AstroModIntegrator
 {
+    public enum DownloadMode
+    {
+        [EnumMember(Value = "github_repository")]
+        Repository,
+        [EnumMember(Value = "index_file")]
+        IndexFile,
+    }
+
+    public class DownloadInfo
+    {
+        [JsonProperty("type")]
+        [JsonConverter(typeof(StringEnumConverter))]
+        public DownloadMode Type;
+
+        [JsonProperty("repository")]
+        [DefaultValue("")]
+        public string Repository;
+
+        [JsonProperty("url")]
+        [DefaultValue("")]
+        public string URL;
+    }
+
     public enum SyncMode
     {
         [EnumMember(Value = "serverclient")]
-        ServerClient,
+        ServerAndClient,
         [EnumMember(Value = "server")]
-        Server,
+        ServerOnly,
         [EnumMember(Value = "client")]
-        Client
+        ClientOnly
     }
 
     public class Metadata
@@ -26,6 +46,7 @@ namespace AstroModIntegrator
         public string Name;
 
         [JsonProperty("mod_id")]
+        [DefaultValue("")]
         public string ModID;
 
         [JsonProperty("author")]
@@ -40,6 +61,10 @@ namespace AstroModIntegrator
         [JsonConverter(typeof(VersionConverter))]
         public Version ModVersion;
 
+        [JsonProperty("astro_build")]
+        [JsonConverter(typeof(VersionConverter))]
+        public Version AstroBuild;
+
         [JsonProperty("sync")]
         [JsonConverter(typeof(StringEnumConverter))]
         public SyncMode Sync;
@@ -47,6 +72,9 @@ namespace AstroModIntegrator
         [JsonProperty("homepage")]
         [DefaultValue("")]
         public string Homepage;
+
+        [JsonProperty("download")]
+        public DownloadInfo Download;
 
         [JsonProperty("linked_actor_components")]
         public Dictionary<string, List<string>> LinkedActorComponents;

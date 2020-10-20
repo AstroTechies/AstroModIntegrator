@@ -51,11 +51,14 @@ namespace AstroModIntegrator
                 if (!itemTypesProperty.ContainsKey(itemPaths.Key)) continue;
                 foreach (string itemPath in itemPaths.Value)
                 {
-                    string itemPathAbs = itemPath.ConvertGamePathToAbsolutePath();
-
-                    // Find class name
                     string realName = itemPath;
                     string className = Path.GetFileNameWithoutExtension(itemPath) + "_C";
+                    if (itemPath.Contains("."))
+                    {
+                        string[] tData = itemPath.Split(new char[] { '.' });
+                        realName = tData[0];
+                        className = tData[1];
+                    }
 
                     y.data.AddHeaderReference(realName);
                     y.data.AddHeaderReference(className);

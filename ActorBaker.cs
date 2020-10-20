@@ -60,14 +60,20 @@ namespace AstroModIntegrator
             byte[] noneRef = BitConverter.GetBytes((long)y.data.SearchHeaderReference("None"));
 
             y.data.AddHeaderReference("bAutoActivate");
-            foreach (string componentPath in newComponents)
+            foreach (string componentPathRaw in newComponents)
             {
-                string component = Path.GetFileNameWithoutExtension(componentPath);
-
                 CategoryReference refData1 = new CategoryReference(refData1B);
                 CategoryReference refData2 = new CategoryReference(refData2B);
                 CategoryReference refData3 = new CategoryReference(refData3B);
 
+                string componentPath = componentPathRaw;
+                string component = Path.GetFileNameWithoutExtension(componentPathRaw);
+                if (componentPathRaw.Contains("."))
+                {
+                    string[] tData = componentPathRaw.Split(new char[] { '.' });
+                    componentPath = tData[0];
+                    component = tData[1].Remove(tData[1].Length - 2);
+                }
                 y.data.AddHeaderReference(componentPath);
                 y.data.AddHeaderReference(component + "_C");
 
