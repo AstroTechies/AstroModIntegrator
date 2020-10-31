@@ -1,7 +1,7 @@
 # Notices
 The following is a list of licenses for the third-party material used in this software.
 
-## Newtonsoft.Json
+## Json.NET
 https://github.com/JamesNK/Newtonsoft.Json
 
 The MIT License (MIT)
