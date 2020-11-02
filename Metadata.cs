@@ -32,6 +32,8 @@ namespace AstroModIntegrator
 
     public enum SyncMode
     {
+        [EnumMember(Value = "none")]
+        None,
         [EnumMember(Value = "serverclient")]
         ServerAndClient,
         [EnumMember(Value = "server")]
