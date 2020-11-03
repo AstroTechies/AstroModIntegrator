@@ -36,7 +36,16 @@ namespace AstroModIntegrator
                     {
                         foreach (KeyValuePair<string, List<string>> entry in newItems)
                         {
-                            if (normalCat.Data[i].Name.Equals(entry.Key) && normalCat.Data[i] is ArrayPropertyData)
+                            string arrName = entry.Key;
+                            if (entry.Key.Contains('.'))
+                            {
+                                string[] tData = entry.Key.Split(new char[] { '.' });
+                                string catName = tData[0].ToLower();
+                                arrName = tData[1];
+                                if (y.data.GetHeaderReference(y.data.GetLinkReference(normalCat.ReferenceData.connection)).ToLower() != catName) continue;
+                            }
+
+                            if (normalCat.Data[i].Name.Equals(arrName) && normalCat.Data[i] is ArrayPropertyData)
                             {
                                 if (!itemTypesProperty.ContainsKey(entry.Key)) itemTypesProperty.Add(entry.Key, new List<ArrayPropertyData>());
                                 itemTypesProperty[entry.Key].Add((ArrayPropertyData)normalCat.Data[i]);
