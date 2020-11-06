@@ -42,8 +42,12 @@ namespace AstroModIntegrator
         ClientOnly
     }
 
-    public class Metadata
+    public class Metadata : ICloneable
     {
+        [JsonProperty("schema_version")]
+        [DefaultValue(1)]
+        public int SchemaVersion;
+
         [JsonProperty("name")]
         public string Name;
 
@@ -83,5 +87,10 @@ namespace AstroModIntegrator
 
         [JsonProperty("item_list_entries")]
         public Dictionary<string, Dictionary<string, List<string>>> ItemListEntries;
+
+        public object Clone()
+        {
+            return this.MemberwiseClone();
+        }
     }
 }
