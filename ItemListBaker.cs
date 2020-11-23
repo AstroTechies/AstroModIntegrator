@@ -62,18 +62,16 @@ namespace AstroModIntegrator
                 {
                     string realName = itemPath;
                     string className = Path.GetFileNameWithoutExtension(itemPath) + "_C";
+                    string softClassName = Path.GetFileNameWithoutExtension(itemPath);
                     if (itemPath.Contains("."))
                     {
                         string[] tData = itemPath.Split(new char[] { '.' });
                         realName = tData[0];
                         className = tData[1];
+                        softClassName = tData[1];
                     }
 
-                    y.data.AddHeaderReference(realName);
-                    y.data.AddHeaderReference(className);
-                    y.data.AddHeaderReference("ObjectProperty");
-                    Link newLink = new Link("/Script/Engine", "BlueprintGeneratedClass", y.data.AddLink("/Script/CoreUObject", "Package", 0, realName).Index, className, y.data);
-                    int bigNewLink = y.data.AddLink(newLink);
+                    int bigNewLink = 0;
 
                     for (int prop = 0; prop < itemTypesProperty.Count; prop++)
                     {
@@ -81,11 +79,34 @@ namespace AstroModIntegrator
                         PropertyData[] usArrData = currentItemTypesProperty.Value;
                         int oldLen = usArrData.Length;
                         Array.Resize(ref usArrData, oldLen + 1);
-                        usArrData[oldLen] = new ObjectPropertyData(currentItemTypesProperty.Name, y.data)
+                        switch (currentItemTypesProperty.ArrayType)
                         {
-                            LinkValue = bigNewLink
-                        };
-                        itemTypesProperty[itemPaths.Key][prop].Value = usArrData;
+                            case "ObjectProperty":
+                                if (bigNewLink >= 0)
+                                {
+                                    y.data.AddHeaderReference(realName);
+                                    y.data.AddHeaderReference(className);
+                                    Link newLink = new Link("/Script/Engine", "BlueprintGeneratedClass", y.data.AddLink("/Script/CoreUObject", "Package", 0, realName).Index, className, y.data);
+                                    bigNewLink = y.data.AddLink(newLink);
+                                }
+
+                                usArrData[oldLen] = new ObjectPropertyData(currentItemTypesProperty.Name, y.data)
+                                {
+                                    LinkValue = bigNewLink
+                                };
+                                itemTypesProperty[itemPaths.Key][prop].Value = usArrData;
+                                break;
+                            case "SoftObjectProperty":
+                                y.data.AddHeaderReference(realName);
+                                y.data.AddHeaderReference(realName + "." + softClassName);
+                                usArrData[oldLen] = new SoftObjectPropertyData(currentItemTypesProperty.Name, y.data)
+                                {
+                                    Value = realName + "." + softClassName,
+                                    Value2 = 0
+                                };
+                                itemTypesProperty[itemPaths.Key][prop].Value = usArrData;
+                                break;
+                        }
                     }
                 }
             }
