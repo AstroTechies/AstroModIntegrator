@@ -15,6 +15,7 @@ namespace AstroModIntegrator
 
             Dictionary<string, List<string>> newComponents = new Dictionary<string, List<string>>();
             Dictionary<string, Dictionary<string, List<string>>> newItems = new Dictionary<string, Dictionary<string, List<string>>>();
+            List<string> newPersistentActors = new List<string>();
             foreach (string file in files)
             {
                 using (FileStream f = new FileStream(file, FileMode.Open, FileAccess.Read))
@@ -70,6 +71,12 @@ namespace AstroModIntegrator
                             }
                         }
                     }
+
+                    List<string> thesePersistentActors = us?.PersistentActors;
+                    if (thesePersistentActors != null)
+                    {
+                        newPersistentActors.AddRange(thesePersistentActors);
+                    }
                 }
             }
 
@@ -97,6 +104,7 @@ namespace AstroModIntegrator
 
                     var actorBaker = new ActorBaker();
                     var itemListBaker = new ItemListBaker(ourExtractor);
+                    var levelBaker = new LevelBaker(ourExtractor, paksPath);
 
                     // Add components
                     foreach (KeyValuePair<string, List<string>> entry in newComponents)
@@ -132,6 +140,14 @@ namespace AstroModIntegrator
                         {
                             Debug.WriteLine(ex.ToString());
                         }
+                    }
+
+                    // Patch level
+                    string mapPath = "Astro/Content/Maps/Staging_T2.umap";
+                    Debug.WriteLine(newPersistentActors.Count);
+                    if (newPersistentActors.Count > 0 && ourExtractor.HasPath(mapPath))
+                    {
+                        createdPakData.Add(mapPath, levelBaker.Bake(newPersistentActors.ToArray(), ourExtractor.ReadRaw(mapPath)).ToArray());
                     }
                 }
             }

@@ -88,6 +88,9 @@ namespace AstroModIntegrator
         [JsonProperty("item_list_entries")]
         public Dictionary<string, Dictionary<string, List<string>>> ItemListEntries;
 
+        [JsonProperty("persistent_actors")]
+        public List<string> PersistentActors;
+
         public object Clone()
         {
             return this.MemberwiseClone();

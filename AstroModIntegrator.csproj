@@ -66,6 +66,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="LevelBaker.cs" />
     <Compile Include="ItemListBaker.cs" />
     <Compile Include="Metadata.cs" />
     <Compile Include="PakExtractor.cs" />
@@ -87,6 +88,7 @@
     </None>
     <None Include="README.md" />
     <None Include="Resources\ActorTemplate.uasset" />
+    <None Include="Resources\LevelTemplate.umap" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Properties\Resources.resx">

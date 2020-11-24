@@ -10,7 +10,7 @@ namespace AstroModIntegrator
 {
     public class ItemListBaker
     {
-        PakExtractor Extractor;
+        private PakExtractor Extractor;
         public ItemListBaker(PakExtractor extractor)
         {
             Extractor = extractor;
