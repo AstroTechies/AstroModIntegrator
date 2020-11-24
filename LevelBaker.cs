@@ -122,8 +122,6 @@ namespace AstroModIntegrator
             }
             if (levelLocation < 0) throw new FormatException("Unable to find Level category");
 
-            int sceneComponentLink = y.data.SearchForLink((ulong)y.data.SearchHeaderReference("/Script/CoreUObject"), (ulong)y.data.SearchHeaderReference("Class"), (ulong)y.data.SearchHeaderReference("SceneComponent"));
-
             foreach (string componentPathRaw in newComponents)
             {
                 CategoryReference refData1 = new CategoryReference(refData1B);

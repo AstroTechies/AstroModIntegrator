@@ -73,7 +73,7 @@ namespace AstroModIntegrator
 
                     int bigNewLink = 0;
 
-                    for (int prop = 0; prop < itemTypesProperty.Count; prop++)
+                    for (int prop = 0; prop < itemTypesProperty[itemPaths.Key].Count; prop++)
                     {
                         ArrayPropertyData currentItemTypesProperty = itemTypesProperty[itemPaths.Key][prop];
                         PropertyData[] usArrData = currentItemTypesProperty.Value;
