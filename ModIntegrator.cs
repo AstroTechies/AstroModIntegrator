@@ -8,7 +8,10 @@ namespace AstroModIntegrator
 {
     public static class ModIntegrator
     {
-        private static string MapPath = "Astro/Content/Maps/Staging_T2.umap";
+        private static string[] MapPaths = new string[] {
+            "Astro/Content/Maps/Staging_T2.umap",
+            "Astro/Content/Maps/TutorialMoon_Prototype_v2.umap"
+        };
 
         public static void IntegrateMods(string paksPath, string installPath) // @"C:\Users\<CLIENT USERNAME>\AppData\Local\Astro\Saved\Paks", @"C:\Program Files (x86)\Steam\steamapps\common\ASTRONEER\Astro\Content\Paks"
         {
@@ -145,9 +148,12 @@ namespace AstroModIntegrator
                     }
 
                     // Patch level
-                    if (newPersistentActors.Count > 0 && ourExtractor.HasPath(MapPath))
+                    if (newPersistentActors.Count > 0)
                     {
-                        createdPakData.Add(MapPath, levelBaker.Bake(newPersistentActors.ToArray(), ourExtractor.ReadRaw(MapPath)).ToArray());
+                        foreach (string mapPath in MapPaths)
+                        {
+                            if (ourExtractor.HasPath(mapPath)) createdPakData.Add(mapPath, levelBaker.Bake(newPersistentActors.ToArray(), ourExtractor.ReadRaw(mapPath)).ToArray());
+                        }
                     }
                 }
             }
