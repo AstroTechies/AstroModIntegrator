@@ -66,6 +66,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="DataTableBaker.cs" />
     <Compile Include="LevelBaker.cs" />
     <Compile Include="ItemListBaker.cs" />
     <Compile Include="Metadata.cs" />
@@ -88,6 +89,7 @@
     </None>
     <None Include="README.md" />
     <None Include="Resources\ActorTemplate.uasset" />
+    <None Include="Resources\IntegratorStaticAssets.pak" />
     <None Include="Resources\LevelTemplate.umap" />
   </ItemGroup>
   <ItemGroup>

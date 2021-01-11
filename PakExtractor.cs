@@ -207,6 +207,11 @@ namespace AstroModIntegrator
         {
             if (!HasPath(searchPath)) return new byte[0];
             long fullOffset = PathToOffset[searchPath];
+            return ReadRaw(fullOffset);
+        }
+
+        public byte[] ReadRaw(long fullOffset)
+        {
             reader.BaseStream.Seek(fullOffset, SeekOrigin.Begin);
             var rec2 = new Record();
             rec2.Read(reader, fileVersion, false);

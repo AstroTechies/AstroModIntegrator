@@ -9,10 +9,8 @@ namespace AstroModIntegrator
 {
     public enum DownloadMode
     {
-        [EnumMember(Value = "github_repository")]
-        Repository,
         [EnumMember(Value = "index_file")]
-        IndexFile,
+        IndexFile
     }
 
     public class DownloadInfo
@@ -20,10 +18,6 @@ namespace AstroModIntegrator
         [JsonProperty("type")]
         [JsonConverter(typeof(StringEnumConverter))]
         public DownloadMode Type;
-
-        [JsonProperty("repository")]
-        [DefaultValue("")]
-        public string Repository;
 
         [JsonProperty("url")]
         [DefaultValue("")]

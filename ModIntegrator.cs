@@ -2,25 +2,32 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Text;
+using System.Linq;
 
 namespace AstroModIntegrator
 {
-    public static class ModIntegrator
+    public class ModIntegrator
     {
+        // Settings //
+        public bool IsServer;
+        public bool RefuseVanillaConnections;
+        // End Settings //
+
         private static string[] MapPaths = new string[] {
             "Astro/Content/Maps/Staging_T2.umap",
             "Astro/Content/Maps/TutorialMoon_Prototype_v2.umap"
         };
 
-        public static void IntegrateMods(string paksPath, string installPath) // @"C:\Users\<CLIENT USERNAME>\AppData\Local\Astro\Saved\Paks", @"C:\Program Files (x86)\Steam\steamapps\common\ASTRONEER\Astro\Content\Paks"
+        public void IntegrateMods(string paksPath, string installPath) // @"C:\Users\<CLIENT USERNAME>\AppData\Local\Astro\Saved\Paks", @"C:\Program Files (x86)\Steam\steamapps\common\ASTRONEER\Astro\Content\Paks"
         {
             Directory.CreateDirectory(paksPath);
             string[] files = Directory.GetFiles(paksPath, "*_P.pak", SearchOption.TopDirectoryOnly);
 
+            int modCount = 0;
             Dictionary<string, List<string>> newComponents = new Dictionary<string, List<string>>();
             Dictionary<string, Dictionary<string, List<string>>> newItems = new Dictionary<string, Dictionary<string, List<string>>>();
             List<string> newPersistentActors = new List<string>();
+            List<Metadata> allMods = new List<Metadata>();
             foreach (string file in files)
             {
                 using (FileStream f = new FileStream(file, FileMode.Open, FileAccess.Read))
@@ -35,7 +42,11 @@ namespace AstroModIntegrator
                         continue;
                     }
 
-                    Dictionary<string, List<string>> theseComponents = us?.LinkedActorComponents;
+                    if (us == null || us.ModID == "AstroModIntegrator") continue;
+                    modCount++;
+                    allMods.Add(us);
+
+                    Dictionary<string, List<string>> theseComponents = us.LinkedActorComponents;
                     if (theseComponents != null)
                     {
                         foreach (KeyValuePair<string, List<string>> entry in theseComponents)
@@ -51,7 +62,7 @@ namespace AstroModIntegrator
                         }
                     }
 
-                    Dictionary<string, Dictionary<string, List<string>>> theseItems = us?.ItemListEntries;
+                    Dictionary<string, Dictionary<string, List<string>>> theseItems = us.ItemListEntries;
                     if (theseItems != null)
                     {
                         foreach (KeyValuePair<string, Dictionary<string, List<string>>> entry in theseItems)
@@ -77,7 +88,7 @@ namespace AstroModIntegrator
                         }
                     }
 
-                    List<string> thesePersistentActors = us?.PersistentActors;
+                    List<string> thesePersistentActors = us.PersistentActors;
                     if (thesePersistentActors != null)
                     {
                         newPersistentActors.AddRange(thesePersistentActors);
@@ -85,13 +96,22 @@ namespace AstroModIntegrator
                 }
             }
 
-            string decidedNewMetadata = "{\"schema_version\":1,\"name\":\"AstroModIntegrator\",\"mod_id\":\"AstroModIntegrator\",\"author\":\"\",\"description\":\"Auto-generated pak file. DO NOT TREAT THIS AS AN ACTUAL MOD!\",\"version\":\"0.1.0\",\"sync\":\"none\",\"homepage\":\"https://github.com/AstroTechies/AstroModIntegrator\"}";
-
             Dictionary<string, byte[]> createdPakData = new Dictionary<string, byte[]>
             {
-                { "metadata.json", Encoding.UTF8.GetBytes(decidedNewMetadata) },
+                { "metadata.json", StarterPakData["metadata.json"] }
             };
-            
+
+            if (modCount > 0)
+            {
+                // Apply static files
+                createdPakData = StarterPakData.ToDictionary(entry => entry.Key, entry => (byte[])entry.Value.Clone());
+
+                // TODO: Implement refuse vanilla connections option
+
+                // Generate mods data table
+                createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = new DataTableBaker().Bake(allMods.ToArray(), createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
+            }
+
             string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
             foreach (string realPakPath in realPakPaths)
             {
@@ -163,6 +183,17 @@ namespace AstroModIntegrator
             using (FileStream f = new FileStream(Path.Combine(paksPath, @"999-AstroModIntegrator_P.pak"), FileMode.Create, FileAccess.Write))
             {
                 f.Write(pakData, 0, pakData.Length);
+            }
+        }
+
+        private Dictionary<string, byte[]> StarterPakData = new Dictionary<string, byte[]>();
+        public ModIntegrator()
+        {
+            // Include static assets
+            PakExtractor staticAssetsExtractor = new PakExtractor(new BinaryReader(new MemoryStream(Properties.Resources.IntegratorStaticAssets)));
+            foreach (KeyValuePair<string, long> entry in staticAssetsExtractor.PathToOffset)
+            {
+                StarterPakData[entry.Key] = staticAssetsExtractor.ReadRaw(entry.Value);
             }
         }
     }
