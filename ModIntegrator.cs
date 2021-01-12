@@ -10,7 +10,7 @@ namespace AstroModIntegrator
     {
         // Settings //
         public bool IsServer;
-        public bool RefuseVanillaConnections;
+        public bool RefuseMismatchedConnections;
         // End Settings //
 
         private static string[] MapPaths = new string[] {
@@ -106,7 +106,12 @@ namespace AstroModIntegrator
                 // Apply static files
                 createdPakData = StarterPakData.ToDictionary(entry => entry.Key, entry => (byte[])entry.Value.Clone());
 
-                // TODO: Implement refuse vanilla connections option
+                // TODO: Find a way to also refuse vanilla connections, not just modded connections with a mismatch
+                if (!IsServer || RefuseMismatchedConnections)
+                {
+                    if (!newComponents.ContainsKey("/Game/Globals/PlayControllerInstance")) newComponents.Add("/Game/Globals/PlayControllerInstance", new List<string>());
+                    newComponents["/Game/Globals/PlayControllerInstance"].Add("/Game/Integrator/ServerModComponent");
+                }
 
                 // Generate mods data table
                 createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = new DataTableBaker().Bake(allMods.ToArray(), createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();

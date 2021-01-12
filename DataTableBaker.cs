@@ -48,31 +48,68 @@ namespace AstroModIntegrator
             {
                 if (mod == null) continue;
 
-                Dictionary<int, string> rows = new Dictionary<int, string>();
-                rows[0] = mod.Name;
-                rows[1] = mod.Author;
-                rows[2] = mod.Description;
-                rows[3] = mod.ModVersion?.ToString();
-                rows[4] = mod.AstroBuild?.ToString();
-                rows[5] = mod.Sync.GetEnumMemberAttrValue();
-                rows[6] = mod.Homepage;
-
                 y.data.AddHeaderReference(mod.ModID);
-                foreach (KeyValuePair<int, string> entry in rows)
+
+                string codedSyncMode = "SyncMode::NewEnumerator0";
+                switch(mod.Sync)
                 {
-                    if (entry.Value == null) continue;
-                    y.data.AddHeaderReference(entry.Value);
+                    case SyncMode.None:
+                        codedSyncMode = "SyncMode::NewEnumerator0";
+                        break;
+                    case SyncMode.ServerOnly:
+                        codedSyncMode = "SyncMode::NewEnumerator1";
+                        break;
+                    case SyncMode.ClientOnly:
+                        codedSyncMode = "SyncMode::NewEnumerator2";
+                        break;
+                    case SyncMode.ServerAndClient:
+                        codedSyncMode = "SyncMode::NewEnumerator3";
+                        break;
                 }
+
+                List<PropertyData> rows = new List<PropertyData>();
+                rows.Add(new StrPropertyData(columns[0], y.data)
+                {
+                    Value = mod.Name ?? "",
+                    Encoding = Encoding.ASCII
+                });
+                rows.Add(new StrPropertyData(columns[1], y.data)
+                {
+                    Value = mod.Author ?? "",
+                    Encoding = Encoding.ASCII
+                });
+                rows.Add(new StrPropertyData(columns[2], y.data)
+                {
+                    Value = mod.Description ?? "",
+                    Encoding = Encoding.ASCII
+                });
+                rows.Add(new StrPropertyData(columns[3], y.data)
+                {
+                    Value = mod.ModVersion?.ToString() ?? "",
+                    Encoding = Encoding.ASCII
+                });
+                rows.Add(new StrPropertyData(columns[4], y.data)
+                {
+                    Value = mod.AstroBuild?.ToString() ?? "",
+                    Encoding = Encoding.ASCII
+                });
+                rows.Add(new BytePropertyData(columns[5], y.data)
+                {
+                    ByteType = BytePropertyType.Long,
+                    EnumType = y.data.AddHeaderReference("SyncMode"),
+                    Value = y.data.AddHeaderReference(codedSyncMode)
+                });
+                rows.Add(new StrPropertyData(columns[6], y.data)
+                {
+                    Value = mod.Homepage ?? "",
+                    Encoding = Encoding.ASCII
+                });
 
                 if (!DuplicateIndexLookup.ContainsKey(mod.ModID)) DuplicateIndexLookup[mod.ModID] = 0;
                 newTable.Add(new DataTableEntry(new StructPropertyData(mod.ModID, y.data)
                 {
                     StructType = tab[0].Data.StructType,
-                    Value = rows.Select(x => (PropertyData)new StrPropertyData(columns[x.Key], y.data)
-                    {
-                        Value = x.Value ?? "",
-                        Encoding = Encoding.ASCII
-                    }).ToList()
+                    Value = rows
                 }, DuplicateIndexLookup[mod.ModID]));
                 DuplicateIndexLookup[mod.ModID]++;
             }
