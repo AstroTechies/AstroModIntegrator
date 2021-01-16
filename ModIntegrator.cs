@@ -11,6 +11,7 @@ namespace AstroModIntegrator
         // Settings //
         public bool IsServer;
         public bool RefuseMismatchedConnections;
+        public List<string> OptionalModIDs;
         // End Settings //
 
         private static string[] MapPaths = new string[] {
@@ -106,15 +107,11 @@ namespace AstroModIntegrator
                 // Apply static files
                 createdPakData = StarterPakData.ToDictionary(entry => entry.Key, entry => (byte[])entry.Value.Clone());
 
-                // TODO: Find a way to also refuse vanilla connections, not just modded connections with a mismatch
-                if (!IsServer || RefuseMismatchedConnections)
-                {
-                    if (!newComponents.ContainsKey("/Game/Globals/PlayControllerInstance")) newComponents.Add("/Game/Globals/PlayControllerInstance", new List<string>());
-                    newComponents["/Game/Globals/PlayControllerInstance"].Add("/Game/Integrator/ServerModComponent");
-                }
+                if (!newComponents.ContainsKey("/Game/Globals/PlayControllerInstance")) newComponents.Add("/Game/Globals/PlayControllerInstance", new List<string>());
+                newComponents["/Game/Globals/PlayControllerInstance"].Add("/Game/Integrator/ServerModComponent");
 
                 // Generate mods data table
-                createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = new DataTableBaker().Bake(allMods.ToArray(), createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
+                createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = new DataTableBaker().Bake(allMods.ToArray(), OptionalModIDs, createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
             }
 
             string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
@@ -194,6 +191,8 @@ namespace AstroModIntegrator
         private Dictionary<string, byte[]> StarterPakData = new Dictionary<string, byte[]>();
         public ModIntegrator()
         {
+            OptionalModIDs = new List<string>();
+
             // Include static assets
             PakExtractor staticAssetsExtractor = new PakExtractor(new BinaryReader(new MemoryStream(Properties.Resources.IntegratorStaticAssets)));
             foreach (KeyValuePair<string, long> entry in staticAssetsExtractor.PathToOffset)

@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -250,13 +251,26 @@ namespace AstroModIntegrator
             }
         }
 
+        private static Metadata ParseMetadata(string data)
+        {
+            JObject jobj = JObject.Parse(data);
+            int schemaVersion = jobj.ContainsKey("schema_version") ? (int)jobj["schema_version"] : 1;
+            switch(schemaVersion)
+            {
+                case 1:
+                    return JsonConvert.DeserializeObject<Metadata>(data);
+                default:
+                    throw new NotImplementedException("Unimplemented schema version " + schemaVersion);
+            }
+        }
+
         public Metadata ReadMetadata()
         {
             string data = Encoding.UTF8.GetString(ReadRaw("metadata.json"));
             if (string.IsNullOrEmpty(data)) return null;
             try
             {
-                return JsonConvert.DeserializeObject<Metadata>(data);
+                return ParseMetadata(data);
             }
             catch (JsonReaderException)
             {

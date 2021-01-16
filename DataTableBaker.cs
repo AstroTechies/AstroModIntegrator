@@ -17,7 +17,7 @@ namespace AstroModIntegrator
 
         }
 
-        public MemoryStream Bake(Metadata[] allMods, byte[] superRawData)
+        public MemoryStream Bake(Metadata[] allMods, List<string> optionalModIDs, byte[] superRawData)
         {
             BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
             AssetWriter y = new AssetWriter
@@ -103,6 +103,10 @@ namespace AstroModIntegrator
                 {
                     Value = mod.Homepage ?? "",
                     Encoding = Encoding.ASCII
+                });
+                rows.Add(new BoolPropertyData(columns[7], y.data)
+                {
+                    Value = (mod.Sync != SyncMode.ServerAndClient) || optionalModIDs.Contains(mod.ModID),
                 });
 
                 if (!DuplicateIndexLookup.ContainsKey(mod.ModID)) DuplicateIndexLookup[mod.ModID] = 0;
