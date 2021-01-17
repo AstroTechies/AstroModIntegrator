@@ -12,9 +12,11 @@ namespace AstroModIntegrator
 {
     public class DataTableBaker
     {
-        public DataTableBaker()
-        {
+        private ModIntegrator ParentIntegrator;
 
+        public DataTableBaker(ModIntegrator ParentIntegrator)
+        {
+            this.ParentIntegrator = ParentIntegrator;
         }
 
         public MemoryStream Bake(Metadata[] allMods, List<string> optionalModIDs, byte[] superRawData)
@@ -119,6 +121,43 @@ namespace AstroModIntegrator
             }
 
             targetCategory.Data2.Table = newTable;
+            return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
+        }
+
+        public MemoryStream Bake2(byte[] superRawData)
+        {
+            BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
+            AssetWriter y = new AssetWriter
+            {
+                WillStoreOriginalCopyInMemory = true,
+                WillWriteSectionSix = true,
+                data = new AssetReader()
+            };
+            y.data.Read(yReader);
+            y.OriginalCopy = superRawData;
+
+            int brandNewLink = y.data.AddLink(new Link((ulong)y.data.AddHeaderReference("/Script/Engine"), (ulong)y.data.AddHeaderReference("BlueprintGeneratedClass"), y.data.AddLink(new Link((ulong)y.data.AddHeaderReference("/Script/CoreUObject"), (ulong)y.data.AddHeaderReference("Package"), 0, (ulong)y.data.AddHeaderReference("/Game/Integrator/IntegratorStatics_BP"))), (ulong)y.data.AddHeaderReference("IntegratorStatics_BP_C")));
+
+            NormalCategory cat1 = y.data.categories[0] as NormalCategory;
+            if (cat1 == null) return null;
+
+            cat1.Data = new List<PropertyData>()
+            {
+                new StrPropertyData("IntegratorVersion", y.data)
+                {
+                    Value = System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion,
+                    Encoding = Encoding.ASCII
+                },
+                new BoolPropertyData("RefuseMismatchedConnections", y.data)
+                {
+                    Value = ParentIntegrator.RefuseMismatchedConnections
+                },
+                new ObjectPropertyData("NativeClass", y.data)
+                {
+                    LinkValue = brandNewLink
+                }
+            };
+
             return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
         }
     }

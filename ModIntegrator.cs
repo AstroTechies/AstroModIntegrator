@@ -9,7 +9,6 @@ namespace AstroModIntegrator
     public class ModIntegrator
     {
         // Settings //
-        public bool IsServer;
         public bool RefuseMismatchedConnections;
         public List<string> OptionalModIDs;
         // End Settings //
@@ -111,7 +110,9 @@ namespace AstroModIntegrator
                 newComponents["/Game/Globals/PlayControllerInstance"].Add("/Game/Integrator/ServerModComponent");
 
                 // Generate mods data table
-                createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = new DataTableBaker().Bake(allMods.ToArray(), OptionalModIDs, createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
+                var dtb = new DataTableBaker(this);
+                createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = dtb.Bake(allMods.ToArray(), OptionalModIDs, createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
+                createdPakData["Astro/Content/Integrator/IntegratorStatics.uasset"] = dtb.Bake2(createdPakData["Astro/Content/Integrator/IntegratorStatics.uasset"]).ToArray();
             }
 
             string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
