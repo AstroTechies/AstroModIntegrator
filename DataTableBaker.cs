@@ -108,7 +108,7 @@ namespace AstroModIntegrator
                 });
                 rows.Add(new BoolPropertyData(columns[7], y.data)
                 {
-                    Value = (mod.Sync != SyncMode.ServerAndClient) || optionalModIDs.Contains(mod.ModID),
+                    Value = optionalModIDs.Contains(mod.ModID),
                 });
 
                 if (!DuplicateIndexLookup.ContainsKey(mod.ModID)) DuplicateIndexLookup[mod.ModID] = 0;
