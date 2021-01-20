@@ -1,9 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using UAssetAPI;
 using UAssetAPI.PropertyTypes;
 using UAssetAPI.StructTypes;
@@ -145,7 +144,7 @@ namespace AstroModIntegrator
             {
                 new StrPropertyData("IntegratorVersion", y.data)
                 {
-                    Value = System.Diagnostics.FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion,
+                    Value = Assembly.GetEntryAssembly().GetName().Version.ToString(),
                     Encoding = Encoding.ASCII
                 },
                 new BoolPropertyData("RefuseMismatchedConnections", y.data)
