@@ -144,7 +144,7 @@ namespace AstroModIntegrator
             {
                 new StrPropertyData("IntegratorVersion", y.data)
                 {
-                    Value = "1.3.0.0",
+                    Value = IntegratorUtils.CurrentVersion.ToString(),
                     Encoding = Encoding.ASCII
                 },
                 new BoolPropertyData("RefuseMismatchedConnections", y.data)

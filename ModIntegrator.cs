@@ -15,7 +15,7 @@ namespace AstroModIntegrator
 
         private static string[] MapPaths = new string[] {
             "Astro/Content/Maps/Staging_T2.umap",
-            "Astro/Content/Maps/TutorialMoon_Prototype_v2.umap",
+            //"Astro/Content/Maps/TutorialMoon_Prototype_v2.umap", // Tutorial not integrated for performance
             "Astro/Content/Maps/test/BasicSphereT2.umap"
         };
 
@@ -147,26 +147,15 @@ namespace AstroModIntegrator
 
                     var actorBaker = new ActorBaker();
                     var itemListBaker = new ItemListBaker(ourExtractor);
-                    var missionBaker = new MissionBaker(ourExtractor);
                     var levelBaker = new LevelBaker(ourExtractor, paksPath);
 
-                    // Patch level for persisent actors
-                    if (newPersistentActors.Count > 0)
+                    // Patch level for persisent actors and missions
+                    if (newPersistentActors.Count > 0 || newTrailheads.Count > 0)
                     {
                         foreach (string mapPath in MapPaths)
                         {
                             byte[] mapPathData = FindFile(mapPath, createdPakData, ourExtractor);
-                            if (mapPathData != null) createdPakData[mapPath] = levelBaker.Bake(newPersistentActors.ToArray(), mapPathData).ToArray();
-                        }
-                    }
-
-                    // Patch level for missions
-                    if (newTrailheads.Count > 0)
-                    {
-                        foreach (string mapPath in MapPaths)
-                        {
-                            byte[] mapPathData = FindFile(mapPath, createdPakData, ourExtractor);
-                            if (mapPathData != null) createdPakData[mapPath] = missionBaker.Bake(newTrailheads.ToArray(), mapPathData).ToArray();
+                            if (mapPathData != null) createdPakData[mapPath] = levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), mapPathData).ToArray();
                         }
                     }
 

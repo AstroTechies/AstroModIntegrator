@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
@@ -7,6 +8,8 @@ namespace AstroModIntegrator
 {
     public static class IntegratorUtils
     {
+        public static Version CurrentVersion = new Version(1, 3, 1, 0);
+
         public static Regex GameRegex = new Regex(@"^\/Game\/", RegexOptions.Compiled);
         public static string ConvertGamePathToAbsolutePath(this string gamePath)
         {
