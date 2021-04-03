@@ -85,6 +85,9 @@ namespace AstroModIntegrator
         [JsonProperty("persistent_actors")]
         public List<string> PersistentActors;
 
+        [JsonProperty("mission_trailheads")]
+        public List<string> MissionTrailheads;
+
         public object Clone()
         {
             return this.MemberwiseClone();

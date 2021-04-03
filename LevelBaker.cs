@@ -122,6 +122,14 @@ namespace AstroModIntegrator
             }
             if (levelLocation < 0) throw new FormatException("Unable to find Level category");
 
+            // Preliminary header reference additions
+            y.data.AddHeaderReference("bHidden");
+            y.data.AddHeaderReference("bNetAddressable");
+            y.data.AddHeaderReference("CreationMethod");
+            y.data.AddHeaderReference("BlueprintCreatedComponents");
+            y.data.AddHeaderReference("AttachParent");
+            y.data.AddHeaderReference("RootComponent");
+
             foreach (string componentPathRaw in newComponents)
             {
                 CategoryReference refData1 = new CategoryReference(refData1B);

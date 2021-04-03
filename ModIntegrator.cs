@@ -15,8 +15,16 @@ namespace AstroModIntegrator
 
         private static string[] MapPaths = new string[] {
             "Astro/Content/Maps/Staging_T2.umap",
-            "Astro/Content/Maps/TutorialMoon_Prototype_v2.umap"
+            "Astro/Content/Maps/TutorialMoon_Prototype_v2.umap",
+            "Astro/Content/Maps/test/BasicSphereT2.umap"
         };
+
+        private byte[] FindFile(string target, Dictionary<string, byte[]> createdPakData, PakExtractor ourExtractor)
+        {
+            if (createdPakData.ContainsKey(target)) return createdPakData[target];
+            if (ourExtractor.HasPath(target)) return ourExtractor.ReadRaw(target);
+            return null;
+        }
 
         public void IntegrateMods(string paksPath, string installPath) // @"C:\Users\<CLIENT USERNAME>\AppData\Local\Astro\Saved\Paks", @"C:\Program Files (x86)\Steam\steamapps\common\ASTRONEER\Astro\Content\Paks"
         {
@@ -27,6 +35,7 @@ namespace AstroModIntegrator
             Dictionary<string, List<string>> newComponents = new Dictionary<string, List<string>>();
             Dictionary<string, Dictionary<string, List<string>>> newItems = new Dictionary<string, Dictionary<string, List<string>>>();
             List<string> newPersistentActors = new List<string>();
+            List<string> newTrailheads = new List<string>();
             List<Metadata> allMods = new List<Metadata>();
             foreach (string file in files)
             {
@@ -93,6 +102,12 @@ namespace AstroModIntegrator
                     {
                         newPersistentActors.AddRange(thesePersistentActors);
                     }
+
+                    List<string> theseTrailheads = us.MissionTrailheads;
+                    if (theseTrailheads != null)
+                    {
+                        newTrailheads.AddRange(theseTrailheads);
+                    }
                 }
             }
 
@@ -132,18 +147,39 @@ namespace AstroModIntegrator
 
                     var actorBaker = new ActorBaker();
                     var itemListBaker = new ItemListBaker(ourExtractor);
+                    var missionBaker = new MissionBaker(ourExtractor);
                     var levelBaker = new LevelBaker(ourExtractor, paksPath);
+
+                    // Patch level for persisent actors
+                    if (newPersistentActors.Count > 0)
+                    {
+                        foreach (string mapPath in MapPaths)
+                        {
+                            byte[] mapPathData = FindFile(mapPath, createdPakData, ourExtractor);
+                            if (mapPathData != null) createdPakData[mapPath] = levelBaker.Bake(newPersistentActors.ToArray(), mapPathData).ToArray();
+                        }
+                    }
+
+                    // Patch level for missions
+                    if (newTrailheads.Count > 0)
+                    {
+                        foreach (string mapPath in MapPaths)
+                        {
+                            byte[] mapPathData = FindFile(mapPath, createdPakData, ourExtractor);
+                            if (mapPathData != null) createdPakData[mapPath] = missionBaker.Bake(newTrailheads.ToArray(), mapPathData).ToArray();
+                        }
+                    }
 
                     // Add components
                     foreach (KeyValuePair<string, List<string>> entry in newComponents)
                     {
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
-                        if (!ourExtractor.HasPath(establishedPath)) continue;
+                        byte[] actorData = FindFile(establishedPath, createdPakData, ourExtractor);
+                        if (actorData == null) continue;
                         try
                         {
-                            byte[] actorData = ourExtractor.ReadRaw(establishedPath);
-                            createdPakData.Add(establishedPath, actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray());
+                            createdPakData[establishedPath] = actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray();
                         }
                         catch (Exception ex)
                         {
@@ -154,28 +190,17 @@ namespace AstroModIntegrator
                     // Add new item entries
                     foreach (KeyValuePair<string, Dictionary<string, List<string>>> entry in newItems)
                     {
-                        string establishedPath = entry.Key;
-                        if (!establishedPath.Substring(0, 5).Equals("/Game")) continue;
-                        establishedPath = Path.ChangeExtension("Astro/Content" + establishedPath.Substring(5), ".uasset");
+                        string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
-                        if (!ourExtractor.HasPath(establishedPath)) continue;
+                        byte[] actorData = FindFile(establishedPath, createdPakData, ourExtractor);
+                        if (actorData == null) continue;
                         try
                         {
-                            byte[] actorData = ourExtractor.ReadRaw(establishedPath);
-                            createdPakData.Add(establishedPath, itemListBaker.Bake(entry.Value, actorData).ToArray());
+                            createdPakData[establishedPath] = itemListBaker.Bake(entry.Value, actorData).ToArray();
                         }
                         catch (Exception ex)
                         {
                             Debug.WriteLine(ex.ToString());
-                        }
-                    }
-
-                    // Patch level
-                    if (newPersistentActors.Count > 0)
-                    {
-                        foreach (string mapPath in MapPaths)
-                        {
-                            if (ourExtractor.HasPath(mapPath)) createdPakData.Add(mapPath, levelBaker.Bake(newPersistentActors.ToArray(), ourExtractor.ReadRaw(mapPath)).ToArray());
                         }
                     }
                 }

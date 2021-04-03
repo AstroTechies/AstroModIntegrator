@@ -11,7 +11,10 @@ namespace AstroModIntegrator
         public static string ConvertGamePathToAbsolutePath(this string gamePath)
         {
             if (!GameRegex.IsMatch(gamePath)) return string.Empty;
-            return Path.ChangeExtension(GameRegex.Replace(gamePath, "Astro/Content/", 1), ".uasset");
+            string newPath = GameRegex.Replace(gamePath, "Astro/Content/", 1);
+
+            if (Path.HasExtension(newPath)) return newPath;
+            return Path.ChangeExtension(newPath, ".uasset");
         }
 
         public static string GetEnumMemberAttrValue(this object enumVal)
