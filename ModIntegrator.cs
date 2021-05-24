@@ -19,17 +19,82 @@ namespace AstroModIntegrator
             "Astro/Content/Maps/test/BasicSphereT2.umap"
         };
 
-        private byte[] FindFile(string target, Dictionary<string, byte[]> createdPakData, PakExtractor ourExtractor)
+        internal byte[] FindFile(string target, PakExtractor ourExtractor)
         {
-            if (createdPakData.ContainsKey(target)) return createdPakData[target];
-            if (ourExtractor.HasPath(target)) return ourExtractor.ReadRaw(target);
+            if (CreatedPakData.ContainsKey(target)) return CreatedPakData[target];
+            return SearchInAllPaksForPath(target, ourExtractor, false);
+        }
+
+        internal Dictionary<string, string> SearchLookup; // file to path --> pak you can find it in
+        internal void InitializeSearch(string installPath)
+        {
+            SearchLookup = new Dictionary<string, string>();
+            string[] realPakPaths = Directory.GetFiles(installPath, "*_P.pak", SearchOption.TopDirectoryOnly);
+            foreach (string realPakPath in realPakPaths)
+            {
+                using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
+                {
+                    try
+                    {
+                        PakExtractor ourExtractor = new PakExtractor(new BinaryReader(f));
+
+                        Metadata us = null;
+                        try
+                        {
+                            us = ourExtractor.ReadMetadata();
+                        }
+                        catch { }
+
+                        if (us == null || us.ModID == "AstroModIntegrator") continue;
+
+                        foreach (KeyValuePair<string, long> entry in ourExtractor.PathToOffset)
+                        {
+                            SearchLookup[entry.Key] = realPakPath;
+                        }
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        internal byte[] SearchInAllPaksForPath(string searchingPath, PakExtractor fullExtractor, bool checkMainPakFirst = true)
+        {
+            if (checkMainPakFirst && fullExtractor.HasPath(searchingPath)) return fullExtractor.ReadRaw(searchingPath);
+            if (SearchLookup.ContainsKey(searchingPath))
+            {
+                try
+                {
+                    using (FileStream f = new FileStream(SearchLookup[searchingPath], FileMode.Open, FileAccess.Read))
+                    {
+                        try
+                        {
+                            PakExtractor modPakExtractor = new PakExtractor(new BinaryReader(f));
+                            if (modPakExtractor.HasPath(searchingPath)) return modPakExtractor.ReadRaw(searchingPath);
+                        }
+                        catch { }
+                    }
+                }
+                catch (IOException)
+                {
+                    
+                }
+            }
+
+            if (!checkMainPakFirst && fullExtractor.HasPath(searchingPath)) return fullExtractor.ReadRaw(searchingPath);
             return null;
         }
+
+        private Dictionary<string, byte[]> CreatedPakData;
 
         public void IntegrateMods(string paksPath, string installPath) // @"C:\Users\<CLIENT USERNAME>\AppData\Local\Astro\Saved\Paks", @"C:\Program Files (x86)\Steam\steamapps\common\ASTRONEER\Astro\Content\Paks"
         {
             Directory.CreateDirectory(paksPath);
             string[] files = Directory.GetFiles(paksPath, "*_P.pak", SearchOption.TopDirectoryOnly);
+
+            InitializeSearch(paksPath);
 
             int modCount = 0;
             Dictionary<string, List<string>> newComponents = new Dictionary<string, List<string>>();
@@ -111,7 +176,7 @@ namespace AstroModIntegrator
                 }
             }
 
-            Dictionary<string, byte[]> createdPakData = new Dictionary<string, byte[]>
+            CreatedPakData = new Dictionary<string, byte[]>
             {
                 { "metadata.json", StarterPakData["metadata.json"] }
             };
@@ -119,15 +184,15 @@ namespace AstroModIntegrator
             if (modCount > 0)
             {
                 // Apply static files
-                createdPakData = StarterPakData.ToDictionary(entry => entry.Key, entry => (byte[])entry.Value.Clone());
+                CreatedPakData = StarterPakData.ToDictionary(entry => entry.Key, entry => (byte[])entry.Value.Clone());
 
                 if (!newComponents.ContainsKey("/Game/Globals/PlayControllerInstance")) newComponents.Add("/Game/Globals/PlayControllerInstance", new List<string>());
                 newComponents["/Game/Globals/PlayControllerInstance"].Add("/Game/Integrator/ServerModComponent");
 
                 // Generate mods data table
                 var dtb = new DataTableBaker(this);
-                createdPakData["Astro/Content/Integrator/ListOfMods.uasset"] = dtb.Bake(allMods.ToArray(), OptionalModIDs, createdPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
-                createdPakData["Astro/Content/Integrator/IntegratorStatics.uasset"] = dtb.Bake2(createdPakData["Astro/Content/Integrator/IntegratorStatics.uasset"]).ToArray();
+                CreatedPakData["Astro/Content/Integrator/ListOfMods.uasset"] = dtb.Bake(allMods.ToArray(), OptionalModIDs, CreatedPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
+                CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"] = dtb.Bake2(CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"]).ToArray();
             }
 
             string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
@@ -146,16 +211,16 @@ namespace AstroModIntegrator
                     }
 
                     var actorBaker = new ActorBaker();
-                    var itemListBaker = new ItemListBaker(ourExtractor);
-                    var levelBaker = new LevelBaker(ourExtractor, paksPath);
+                    var itemListBaker = new ItemListBaker();
+                    var levelBaker = new LevelBaker(ourExtractor, this);
 
-                    // Patch level for persisent actors and missions
+                    // Patch level for persistent actors and missions
                     if (newPersistentActors.Count > 0 || newTrailheads.Count > 0)
                     {
                         foreach (string mapPath in MapPaths)
                         {
-                            byte[] mapPathData = FindFile(mapPath, createdPakData, ourExtractor);
-                            if (mapPathData != null) createdPakData[mapPath] = levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), mapPathData).ToArray();
+                            byte[] mapPathData = FindFile(mapPath, ourExtractor);
+                            if (mapPathData != null) CreatedPakData[mapPath] = levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), mapPathData).ToArray();
                         }
                     }
 
@@ -164,11 +229,11 @@ namespace AstroModIntegrator
                     {
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
-                        byte[] actorData = FindFile(establishedPath, createdPakData, ourExtractor);
+                        byte[] actorData = FindFile(establishedPath, ourExtractor);
                         if (actorData == null) continue;
                         try
                         {
-                            createdPakData[establishedPath] = actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray();
+                            CreatedPakData[establishedPath] = actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray();
                         }
                         catch (Exception ex)
                         {
@@ -181,11 +246,11 @@ namespace AstroModIntegrator
                     {
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
-                        byte[] actorData = FindFile(establishedPath, createdPakData, ourExtractor);
+                        byte[] actorData = FindFile(establishedPath, ourExtractor);
                         if (actorData == null) continue;
                         try
                         {
-                            createdPakData[establishedPath] = itemListBaker.Bake(entry.Value, actorData).ToArray();
+                            CreatedPakData[establishedPath] = itemListBaker.Bake(entry.Value, actorData).ToArray();
                         }
                         catch (Exception ex)
                         {
@@ -195,7 +260,7 @@ namespace AstroModIntegrator
                 }
             }
 
-            byte[] pakData = PakBaker.Bake(createdPakData);
+            byte[] pakData = PakBaker.Bake(CreatedPakData);
 
             using (FileStream f = new FileStream(Path.Combine(paksPath, @"999-AstroModIntegrator_P.pak"), FileMode.Create, FileAccess.Write))
             {

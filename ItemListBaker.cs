@@ -10,10 +10,9 @@ namespace AstroModIntegrator
 {
     public class ItemListBaker
     {
-        private PakExtractor Extractor;
-        public ItemListBaker(PakExtractor extractor)
+        public ItemListBaker()
         {
-            Extractor = extractor;
+
         }
 
         public MemoryStream Bake(Dictionary<string, List<string>> newItems, byte[] superRawData)

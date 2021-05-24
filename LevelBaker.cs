@@ -22,71 +22,18 @@ namespace AstroModIntegrator
     public class LevelBaker
     {
         private PakExtractor Extractor;
-        private string InstallPath;
+        private ModIntegrator ParentIntegrator;
         private readonly CategoryReference refData1B; // Actor template
         private readonly CategoryReference refData2B; // SceneComponent
 
-        public LevelBaker(PakExtractor extractor, string installPath)
+        public LevelBaker(PakExtractor extractor, ModIntegrator integrator)
         {
             Extractor = extractor;
-            InstallPath = installPath;
+            ParentIntegrator = integrator;
 
             AssetReader y = new AssetReader(new BinaryReader(new MemoryStream(Properties.Resources.LevelTemplate)));
             refData1B = y.categories[2].ReferenceData;
             refData2B = y.categories[11].ReferenceData;
-
-            InitializeSearch();
-        }
-
-        internal Dictionary<string, string> SearchLookup; // file to path --> pak you can find it in
-        internal void InitializeSearch()
-        {
-            SearchLookup = new Dictionary<string, string>();
-            string[] realPakPaths = Directory.GetFiles(InstallPath, "*.pak", SearchOption.TopDirectoryOnly);
-            foreach (string realPakPath in realPakPaths)
-            {
-                using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
-                {
-                    try
-                    {
-                        PakExtractor ourExtractor = new PakExtractor(new BinaryReader(f));
-                        foreach (KeyValuePair<string, long> entry in ourExtractor.PathToOffset)
-                        {
-                            SearchLookup[entry.Key] = realPakPath;
-                        }
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-                }
-            }
-        }
-
-        internal byte[] SearchInAllPaksForPath(string searchingPath)
-        {
-            if (Extractor.HasPath(searchingPath)) return Extractor.ReadRaw(searchingPath);
-            if (SearchLookup.ContainsKey(searchingPath))
-            {
-                try
-                {
-                    using (FileStream f = new FileStream(SearchLookup[searchingPath], FileMode.Open, FileAccess.Read))
-                    {
-                        try
-                        {
-                            PakExtractor ourExtractor = new PakExtractor(new BinaryReader(f));
-                            if (ourExtractor.HasPath(searchingPath)) return ourExtractor.ReadRaw(searchingPath);
-                        }
-                        catch { }
-                    }
-                }
-                catch (IOException)
-                {
-                    return null;
-                }
-            }
-            
-            return null;
         }
 
         /*
@@ -202,7 +149,7 @@ namespace AstroModIntegrator
 
                 // First we see if we can find the actual asset it's referring to
                 List<SCS_Node> allBlueprintCreatedComponents = new List<SCS_Node>();
-                byte[] foundData = SearchInAllPaksForPath(componentPath.ConvertGamePathToAbsolutePath());
+                byte[] foundData = ParentIntegrator.SearchInAllPaksForPath(componentPath.ConvertGamePathToAbsolutePath(), Extractor);
                 if (foundData != null && foundData.Length > 0)
                 {
                     // If we can find the asset, then we read the asset and hop straight to the SimpleConstructionScript
