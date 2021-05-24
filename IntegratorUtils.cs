@@ -8,9 +8,13 @@ namespace AstroModIntegrator
 {
     public static class IntegratorUtils
     {
-        public static Version CurrentVersion = new Version(1, 3, 1, 0);
+        public static readonly Version CurrentVersion = new Version(1, 3, 1, 0);
+        public static readonly string[] IgnoredModIDs = new string[]
+        {
+            "AstroModIntegrator"
+        };
 
-        public static Regex GameRegex = new Regex(@"^\/Game\/", RegexOptions.Compiled);
+        public static readonly Regex GameRegex = new Regex(@"^\/Game\/", RegexOptions.Compiled);
         public static string ConvertGamePathToAbsolutePath(this string gamePath)
         {
             if (!GameRegex.IsMatch(gamePath)) return string.Empty;

@@ -45,7 +45,7 @@ namespace AstroModIntegrator
                         }
                         catch { }
 
-                        if (us == null || us.ModID == "AstroModIntegrator") continue;
+                        if (us == null || IntegratorUtils.IgnoredModIDs.Contains(us.ModID)) continue;
 
                         foreach (KeyValuePair<string, long> entry in ourExtractor.PathToOffset)
                         {
@@ -116,7 +116,7 @@ namespace AstroModIntegrator
                         continue;
                     }
 
-                    if (us == null || us.ModID == "AstroModIntegrator") continue;
+                    if (us == null || IntegratorUtils.IgnoredModIDs.Contains(us.ModID)) continue;
                     modCount++;
                     allMods.Add(us);
 
