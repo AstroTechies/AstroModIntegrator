@@ -94,6 +94,9 @@ namespace AstroModIntegrator
             Directory.CreateDirectory(paksPath);
             string[] files = Directory.GetFiles(paksPath, "*_P.pak", SearchOption.TopDirectoryOnly);
 
+            string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
+            if (realPakPaths.Length == 0) throw new FileNotFoundException("Failed to locate any game installation pak files");
+
             InitializeSearch(paksPath);
 
             int modCount = 0;
@@ -195,7 +198,6 @@ namespace AstroModIntegrator
                 CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"] = dtb.Bake2(CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"]).ToArray();
             }
 
-            string[] realPakPaths = Directory.GetFiles(installPath, "*.pak", SearchOption.TopDirectoryOnly);
             foreach (string realPakPath in realPakPaths)
             {
                 using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
