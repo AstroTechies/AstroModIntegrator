@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace AstroModIntegrator
 {
@@ -12,6 +13,10 @@ namespace AstroModIntegrator
         public bool RefuseMismatchedConnections;
         public List<string> OptionalModIDs;
         // End Settings //
+
+        // Exposed Fields //
+        public Version DetectedAstroBuild;
+        // End Exposed Fields //
 
         private static string[] MapPaths = new string[] {
             "Astro/Content/Maps/Staging_T2.umap",
@@ -210,6 +215,14 @@ namespace AstroModIntegrator
                     catch
                     {
                         continue;
+                    }
+
+                    // See if we can find the current version in this pak
+                    byte[] defaultGameIni = ourExtractor.ReadRaw("Astro/Config/DefaultGame.ini");
+                    if (defaultGameIni != null && defaultGameIni.Length > 0)
+                    {
+                        string iniIndicatedVersionStr = IniParser.FindLine(Encoding.UTF8.GetString(defaultGameIni), "/Script/EngineSettings.GeneralProjectSettings", "ProjectVersion");
+                        if (iniIndicatedVersionStr != null) Version.TryParse(iniIndicatedVersionStr, out DetectedAstroBuild);
                     }
 
                     var actorBaker = new ActorBaker();

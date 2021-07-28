@@ -66,6 +66,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DataTableBaker.cs" />
+    <Compile Include="IniParser.cs" />
     <Compile Include="LevelBaker.cs" />
     <Compile Include="ItemListBaker.cs" />
     <Compile Include="Metadata.cs" />
