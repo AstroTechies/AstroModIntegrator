@@ -9,7 +9,7 @@ namespace AstroModIntegrator
 {
     public static class PakBaker
     {
-        private static uint Adler32(byte[] data)
+        internal static uint Adler32(byte[] data)
         {
             const int mod = 65521;
             uint a = 1, b = 0;
@@ -39,7 +39,7 @@ namespace AstroModIntegrator
                 x.Seek(-4, SeekOrigin.End);
 
                 byte[] adler = BitConverter.GetBytes(Adler32(data));
-                for (int i = adler.Length - 1; i >= 0; i--) x.Write(adler[i]); // Write the hash in reverse
+                for (int i = adler.Length - 1; i >= 0; i--) x.Write(adler[i]); // Write the hash in reverse, zlib checksums are stored as big endian
                 x.Flush();
                 return stream2.ToArray();
             }

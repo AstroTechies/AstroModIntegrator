@@ -141,6 +141,11 @@ namespace AstroModIntegrator
         BIAS_SPEED
     }
 
+    public class MalformattedFileException : FormatException
+    {
+        public MalformattedFileException(string exText) : base(exText) { }
+    }
+
     public class InvalidFileTypeException : IOException
     {
         public InvalidFileTypeException(string txt) : base(txt)
@@ -199,6 +204,11 @@ namespace AstroModIntegrator
             }
         }
 
+        public IReadOnlyList<string> GetAllPaths()
+        {
+            return new List<string>(PathToOffset.Keys).AsReadOnly();
+        }
+
         public bool HasPath(string searchPath)
         {
             return PathToOffset.ContainsKey(searchPath);
@@ -235,14 +245,41 @@ namespace AstroModIntegrator
                         {
                             reader.BaseStream.Seek((long)blockOffset, SeekOrigin.Begin);
                         }
-                        var memStream = new MemoryStream(reader.ReadBytes((int)blockSize));
-                        memStream.ReadByte();
-                        memStream.ReadByte();
+
+                        byte[] thisRawBlockData = reader.ReadBytes((int)blockSize);
+                        byte[] thisBlockData = new byte[thisRawBlockData.Length - 4];
+                        byte[] blockRawChecksum = new byte[4];
+                        Array.Copy(thisRawBlockData, 0, thisBlockData, 0, thisBlockData.Length);
+                        Array.Copy(thisRawBlockData, thisRawBlockData.Length - blockRawChecksum.Length, blockRawChecksum, 0, blockRawChecksum.Length);
+                        Array.Reverse(blockRawChecksum); // Read the hash in reverse, zlib checksums are stored as big endian
+                        uint blockChecksum = BitConverter.ToUInt32(blockRawChecksum, 0);
+
+                        var memStream = new MemoryStream(thisBlockData);
+
+                        int CMF = memStream.ReadByte();
+                        int CM = CMF & 15;
+                        int CINFO = (CMF & 240) >> 4;
+                        int FLG = memStream.ReadByte();
+                        int FCHECK = FLG & 31;
+                        bool FDICT = (FLG & 32) >> 5 == 1;
+                        int FLEVEL = (FLG & 192) >> 6;
+
+                        if (CM != 8 || CINFO > 7 || (CMF * 256 + FLG) % 31 != 0) throw new MalformattedFileException("Invalid zlib header: " + BitConverter.ToString(new byte[2] { (byte)CMF, (byte)FLG }));
+                        if (FDICT) throw new NotImplementedException("Preset dictionary is not supported");
+
+                        var decompressedBlockStream = new MemoryStream((int)blockSize * 2);
+                        decompressedBlockStream.Seek(0, SeekOrigin.Begin);
                         using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
                         {
-                            fullStream.Seek(0, SeekOrigin.End);
-                            decompressionStream.CopyTo(fullStream);
+                            decompressionStream.CopyTo(decompressedBlockStream);
                         }
+
+                        decompressedBlockStream.Seek(0, SeekOrigin.Begin);
+                        fullStream.Seek(0, SeekOrigin.End);
+                        decompressedBlockStream.CopyTo(fullStream);
+
+                        uint calculatedChecksum = PakBaker.Adler32(decompressedBlockStream.ToArray());
+                        if (calculatedChecksum != blockChecksum) throw new MalformattedFileException("Checksum check failed; compression block likely corrupted");
                     }
 
                     return fullStream.ToArray();
