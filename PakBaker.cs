@@ -21,6 +21,21 @@ namespace AstroModIntegrator
             return (b << 16) | a;
         }
 
+        internal static uint Adler32(BinaryReader data)
+        {
+            data.BaseStream.Seek(0, SeekOrigin.Begin);
+
+            const int mod = 65521;
+            uint a = 1, b = 0;
+            while (data.BaseStream.Position != data.BaseStream.Length)
+            {
+                byte c = data.ReadByte();
+                a = (a + c) % mod;
+                b = (b + a) % mod;
+            }
+            return (b << 16) | a;
+        }
+
         private static byte[] CompressBuffer(byte[] data)
         {
             using (var compressStream = new MemoryStream())

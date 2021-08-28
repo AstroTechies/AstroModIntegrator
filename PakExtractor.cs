@@ -214,14 +214,14 @@ namespace AstroModIntegrator
             return PathToOffset.ContainsKey(searchPath);
         }
 
-        public byte[] ReadRaw(string searchPath)
+        public byte[] ReadRaw(string searchPath, bool verifyChecksums = false)
         {
             if (!HasPath(searchPath)) return new byte[0];
             long fullOffset = PathToOffset[searchPath];
-            return ReadRaw(fullOffset);
+            return ReadRaw(fullOffset, verifyChecksums);
         }
 
-        public byte[] ReadRaw(long fullOffset)
+        public byte[] ReadRaw(long fullOffset, bool verifyChecksums = false)
         {
             reader.BaseStream.Seek(fullOffset, SeekOrigin.Begin);
             var rec2 = new Record();
@@ -267,19 +267,31 @@ namespace AstroModIntegrator
                         if (CM != 8 || CINFO > 7 || (CMF * 256 + FLG) % 31 != 0) throw new MalformattedFileException("Invalid zlib header: " + BitConverter.ToString(new byte[2] { (byte)CMF, (byte)FLG }));
                         if (FDICT) throw new NotImplementedException("Preset dictionary is not supported");
 
-                        var decompressedBlockStream = new MemoryStream((int)blockSize * 2);
-                        decompressedBlockStream.Seek(0, SeekOrigin.Begin);
-                        using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
+                        if (verifyChecksums)
                         {
-                            decompressionStream.CopyTo(decompressedBlockStream);
+                            var decompressedBlockStream = new MemoryStream((int)blockSize * 2);
+                            decompressedBlockStream.Seek(0, SeekOrigin.Begin);
+
+                            using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
+                            {
+                                decompressionStream.CopyTo(decompressedBlockStream);
+                            }
+
+                            decompressedBlockStream.Seek(0, SeekOrigin.Begin);
+                            fullStream.Seek(0, SeekOrigin.End);
+                            decompressedBlockStream.CopyTo(fullStream);
+                            decompressedBlockStream.Seek(0, SeekOrigin.Begin);
+                            uint calculatedChecksum = PakBaker.Adler32(new BinaryReader(decompressedBlockStream));
+                            if (calculatedChecksum != blockChecksum) throw new MalformattedFileException("Checksum check failed; compression block likely corrupted");
                         }
-
-                        decompressedBlockStream.Seek(0, SeekOrigin.Begin);
-                        fullStream.Seek(0, SeekOrigin.End);
-                        decompressedBlockStream.CopyTo(fullStream);
-
-                        uint calculatedChecksum = PakBaker.Adler32(decompressedBlockStream.ToArray());
-                        if (calculatedChecksum != blockChecksum) throw new MalformattedFileException("Checksum check failed; compression block likely corrupted");
+                        else
+                        {
+                            using (DeflateStream decompressionStream = new DeflateStream(memStream, CompressionMode.Decompress))
+                            {
+                                fullStream.Seek(0, SeekOrigin.End);
+                                decompressionStream.CopyTo(fullStream);
+                            }
+                        }
                     }
 
                     return fullStream.ToArray();
