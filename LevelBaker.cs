@@ -154,8 +154,8 @@ namespace AstroModIntegrator
                 // First we see if we can find the actual asset it's referring to
                 List<SCS_Node> allBlueprintCreatedComponents = new List<SCS_Node>();
                 byte[] foundData1 = ParentIntegrator.SearchInAllPaksForPath(componentPath.ConvertGamePathToAbsolutePath(), Extractor);
-                byte[] foundData2 = ParentIntegrator.SearchInAllPaksForPath(Path.ChangeExtension(componentPath.ConvertGamePathToAbsolutePath(), ".uexp"), Extractor);
-                byte[] foundData = null; if (foundData1 != null && foundData2 != null) foundData = IntegratorUtils.Concatenate(foundData1, foundData2);
+                byte[] foundData2 = ParentIntegrator.SearchInAllPaksForPath(Path.ChangeExtension(componentPath.ConvertGamePathToAbsolutePath(), ".uexp"), Extractor) ?? new byte[0];
+                byte[] foundData = null; if (foundData1 != null) foundData = IntegratorUtils.Concatenate(foundData1, foundData2);
                 if (foundData != null && foundData.Length > 0)
                 {
                     // If we can find the asset, then we read the asset and hop straight to the SimpleConstructionScript

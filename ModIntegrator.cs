@@ -234,8 +234,8 @@ namespace AstroModIntegrator
                         foreach (string mapPath in MapPaths)
                         {
                             byte[] mapPathData1 = FindFile(mapPath, ourExtractor);
-                            byte[] mapPathData2 = FindFile(Path.ChangeExtension(mapPath, ".uexp"), ourExtractor);
-                            if (mapPathData1 != null && mapPathData2 != null) IntegratorUtils.SplitExportFiles(levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), IntegratorUtils.Concatenate(mapPathData1, mapPathData2)), mapPath, CreatedPakData);
+                            byte[] mapPathData2 = FindFile(Path.ChangeExtension(mapPath, ".uexp"), ourExtractor) ?? new byte[0];
+                            if (mapPathData1 != null) IntegratorUtils.SplitExportFiles(levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), IntegratorUtils.Concatenate(mapPathData1, mapPathData2)), mapPath, CreatedPakData);
                         }
                     }
 
@@ -245,8 +245,8 @@ namespace AstroModIntegrator
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
                         byte[] actorData1 = FindFile(establishedPath, ourExtractor);
-                        byte[] actorData2 = FindFile(Path.ChangeExtension(establishedPath, ".uexp"), ourExtractor);
-                        if (actorData1 == null || actorData2 == null) continue;
+                        byte[] actorData2 = FindFile(Path.ChangeExtension(establishedPath, ".uexp"), ourExtractor) ?? new byte[0];
+                        if (actorData1 == null) continue;
                         try
                         {
                             IntegratorUtils.SplitExportFiles(actorBaker.Bake(entry.Value.ToArray(), IntegratorUtils.Concatenate(actorData1, actorData2)), establishedPath, CreatedPakData);
@@ -263,8 +263,8 @@ namespace AstroModIntegrator
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
                         byte[] actorData1 = FindFile(establishedPath, ourExtractor);
-                        byte[] actorData2 = FindFile(Path.ChangeExtension(establishedPath, ".uexp"), ourExtractor);
-                        if (actorData1 == null || actorData2 == null) continue;
+                        byte[] actorData2 = FindFile(Path.ChangeExtension(establishedPath, ".uexp"), ourExtractor) ?? new byte[0];
+                        if (actorData1 == null) continue;
                         try
                         {
                             IntegratorUtils.SplitExportFiles(itemListBaker.Bake(entry.Value, IntegratorUtils.Concatenate(actorData1, actorData2)), establishedPath, CreatedPakData);
