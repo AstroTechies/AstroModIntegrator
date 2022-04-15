@@ -18,38 +18,31 @@ namespace AstroModIntegrator
             this.ParentIntegrator = ParentIntegrator;
         }
 
-        public MemoryStream Bake(Metadata[] allMods, List<string> optionalModIDs, byte[] superRawData)
+        public UAsset Bake(Metadata[] allMods, List<string> optionalModIDs, byte[] superRawData)
         {
-            BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
-            AssetWriter y = new AssetWriter
-            {
-                WillStoreOriginalCopyInMemory = true,
-                WillWriteSectionSix = true,
-                data = new AssetReader()
-            };
-            y.data.Read(yReader);
-            y.OriginalCopy = superRawData;
+            UAsset y = new UAsset(IntegratorUtils.EngineVersion);
+            y.UseSeparateBulkDataFiles = true;
+            y.Read(new AssetBinaryReader(new MemoryStream(superRawData), y));
 
-            DataTableCategory targetCategory = null;
-            foreach (Category cat in y.data.categories)
+            DataTableExport targetCategory = null;
+            foreach (Export cat in y.Exports)
             {
-                if (cat is DataTableCategory)
+                if (cat is DataTableExport)
                 {
-                    targetCategory = (DataTableCategory)cat;
+                    targetCategory = (DataTableExport)cat;
                     break;
                 }
             }
 
-            List<DataTableEntry> tab = targetCategory.Data2.Table;
-            string[] columns = tab[0].Data.Value.Select(x => x.Name).ToArray();
+            List<StructPropertyData> tab = targetCategory.Table.Data;
+            FName[] columns = tab[0].Value.Select(x => x.Name).ToArray();
 
-            Dictionary<string, int> DuplicateIndexLookup = new Dictionary<string, int>();
-            List<DataTableEntry> newTable = new List<DataTableEntry>();
+            List<StructPropertyData> newTable = new List<StructPropertyData>();
             foreach (Metadata mod in allMods)
             {
                 if (mod == null) continue;
 
-                y.data.AddHeaderReference(mod.ModID);
+                y.AddNameReference(new FString(mod.ModID));
 
                 string codedSyncMode = "SyncMode::NewEnumerator0";
                 switch(mod.Sync)
@@ -69,95 +62,80 @@ namespace AstroModIntegrator
                 }
 
                 List<PropertyData> rows = new List<PropertyData>();
-                rows.Add(new StrPropertyData(columns[0], y.data)
+                rows.Add(new StrPropertyData(columns[0])
                 {
-                    Value = mod.Name ?? "",
-                    Encoding = Encoding.ASCII
+                    Value = new FString(mod.Name ?? "", Encoding.ASCII),
                 });
-                rows.Add(new StrPropertyData(columns[1], y.data)
+                rows.Add(new StrPropertyData(columns[1])
                 {
-                    Value = mod.Author ?? "",
-                    Encoding = Encoding.ASCII
+                    Value = new FString(mod.Author ?? "", Encoding.ASCII),
                 });
-                rows.Add(new StrPropertyData(columns[2], y.data)
+                rows.Add(new StrPropertyData(columns[2])
                 {
-                    Value = mod.Description ?? "",
-                    Encoding = Encoding.ASCII
+                    Value = new FString(mod.Description ?? "", Encoding.ASCII),
                 });
-                rows.Add(new StrPropertyData(columns[3], y.data)
+                rows.Add(new StrPropertyData(columns[3])
                 {
-                    Value = mod.ModVersion?.ToString() ?? "",
-                    Encoding = Encoding.ASCII
+                    Value = new FString(mod.ModVersion?.ToString() ?? "", Encoding.ASCII),
                 });
-                rows.Add(new StrPropertyData(columns[4], y.data)
+                rows.Add(new StrPropertyData(columns[4])
                 {
-                    Value = mod.AstroBuild?.ToString() ?? "",
-                    Encoding = Encoding.ASCII
+                    Value = new FString(mod.AstroBuild?.ToString() ?? "", Encoding.ASCII),
                 });
-                rows.Add(new BytePropertyData(columns[5], y.data)
+                rows.Add(new BytePropertyData(columns[5])
                 {
                     ByteType = BytePropertyType.Long,
-                    EnumType = y.data.AddHeaderReference("SyncMode"),
-                    Value = y.data.AddHeaderReference(codedSyncMode)
+                    EnumType = y.AddNameReference(new FString("SyncMode")),
+                    Value = y.AddNameReference(new FString(codedSyncMode))
                 });
-                rows.Add(new StrPropertyData(columns[6], y.data)
+                rows.Add(new StrPropertyData(columns[6])
                 {
-                    Value = mod.Homepage ?? "",
-                    Encoding = Encoding.ASCII
+                    Value = new FString(mod.Homepage ?? "", Encoding.ASCII),
                 });
-                rows.Add(new BoolPropertyData(columns[7], y.data)
+                rows.Add(new BoolPropertyData(columns[7])
                 {
                     Value = optionalModIDs.Contains(mod.ModID),
                 });
 
-                if (!DuplicateIndexLookup.ContainsKey(mod.ModID)) DuplicateIndexLookup[mod.ModID] = 0;
-                newTable.Add(new DataTableEntry(new StructPropertyData(mod.ModID, y.data)
+                newTable.Add(new StructPropertyData(new FName(mod.ModID))
                 {
-                    StructType = tab[0].Data.StructType,
+                    StructType = tab[0].StructType,
                     Value = rows
-                }, DuplicateIndexLookup[mod.ModID]));
-                DuplicateIndexLookup[mod.ModID]++;
+                });
             }
 
-            targetCategory.Data2.Table = newTable;
-            return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
+            targetCategory.Table.Data = newTable;
+            return y;
         }
 
-        public MemoryStream Bake2(byte[] superRawData)
+        public UAsset Bake2(byte[] superRawData)
         {
-            BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
-            AssetWriter y = new AssetWriter
-            {
-                WillStoreOriginalCopyInMemory = true,
-                WillWriteSectionSix = true,
-                data = new AssetReader()
-            };
-            y.data.Read(yReader);
-            y.OriginalCopy = superRawData;
+            UAsset y = new UAsset(IntegratorUtils.EngineVersion);
+            y.UseSeparateBulkDataFiles = true;
+            y.Read(new AssetBinaryReader(new MemoryStream(superRawData), y));
 
-            int brandNewLink = y.data.AddLink(new Link((ulong)y.data.AddHeaderReference("/Script/Engine"), (ulong)y.data.AddHeaderReference("BlueprintGeneratedClass"), y.data.AddLink(new Link((ulong)y.data.AddHeaderReference("/Script/CoreUObject"), (ulong)y.data.AddHeaderReference("Package"), 0, (ulong)y.data.AddHeaderReference("/Game/Integrator/IntegratorStatics_BP"))), (ulong)y.data.AddHeaderReference("IntegratorStatics_BP_C")));
+            FPackageIndex brandNewLink = y.AddImport(new Import("/Script/Engine", "BlueprintGeneratedClass", y.AddImport(new Import("/Script/CoreUObject", "Package", FPackageIndex.FromRawIndex(0), "/Game/Integrator/IntegratorStatics_BP")), "IntegratorStatics_BP_C"));
 
-            NormalCategory cat1 = y.data.categories[0] as NormalCategory;
+            NormalExport cat1 = y.Exports[0] as NormalExport;
             if (cat1 == null) return null;
 
             cat1.Data = new List<PropertyData>()
             {
-                new StrPropertyData("IntegratorVersion", y.data)
+                new StrPropertyData(new FName("IntegratorVersion"))
                 {
-                    Value = IntegratorUtils.CurrentVersion.ToString(),
-                    Encoding = Encoding.ASCII
+                    Value = new FString(IntegratorUtils.CurrentVersion.ToString(), Encoding.ASCII)
                 },
-                new BoolPropertyData("RefuseMismatchedConnections", y.data)
+                new BoolPropertyData(new FName("RefuseMismatchedConnections"))
                 {
                     Value = ParentIntegrator.RefuseMismatchedConnections
                 },
-                new ObjectPropertyData("NativeClass", y.data)
+                new ObjectPropertyData(new FName("NativeClass"))
                 {
-                    LinkValue = brandNewLink
+                    Value = brandNewLink
                 }
             };
 
-            return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
+            return y;
         }
     }
 }

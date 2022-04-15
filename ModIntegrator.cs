@@ -20,8 +20,9 @@ namespace AstroModIntegrator
 
         private static string[] MapPaths = new string[] {
             "Astro/Content/Maps/Staging_T2.umap",
+            "Astro/Content/Maps/Staging_T2_PackedPlanets_Switch.umap",
             //"Astro/Content/Maps/TutorialMoon_Prototype_v2.umap", // Tutorial not integrated for performance
-            "Astro/Content/Maps/test/BasicSphereT2.umap"
+            "Astro/Content/Maps/test/BasicSphereT2.umap",
         };
 
         internal byte[] FindFile(string target, PakExtractor ourExtractor)
@@ -199,24 +200,22 @@ namespace AstroModIntegrator
 
                 // Generate mods data table
                 var dtb = new DataTableBaker(this);
-                CreatedPakData["Astro/Content/Integrator/ListOfMods.uasset"] = dtb.Bake(allMods.ToArray(), OptionalModIDs, CreatedPakData["Astro/Content/Integrator/ListOfMods.uasset"]).ToArray();
-                CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"] = dtb.Bake2(CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"]).ToArray();
+                IntegratorUtils.SplitExportFiles(dtb.Bake(allMods.ToArray(), OptionalModIDs, IntegratorUtils.Concatenate(CreatedPakData["Astro/Content/Integrator/ListOfMods.uasset"], CreatedPakData["Astro/Content/Integrator/ListOfMods.uexp"])), "Astro/Content/Integrator/ListOfMods.uasset", CreatedPakData);
+                IntegratorUtils.SplitExportFiles(dtb.Bake2(IntegratorUtils.Concatenate(CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uasset"], CreatedPakData["Astro/Content/Integrator/IntegratorStatics.uexp"])), "Astro/Content/Integrator/IntegratorStatics.uasset", CreatedPakData);
             }
 
-            foreach (string realPakPath in realPakPaths)
+            string realPakPath = realPakPaths[0];
+            using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
             {
-                using (FileStream f = new FileStream(realPakPath, FileMode.Open, FileAccess.Read))
+                PakExtractor ourExtractor = null;
+                try
                 {
-                    PakExtractor ourExtractor;
-                    try
-                    {
-                        ourExtractor = new PakExtractor(new BinaryReader(f));
-                    }
-                    catch
-                    {
-                        continue;
-                    }
+                    ourExtractor = new PakExtractor(new BinaryReader(f));
+                }
+                catch { }
 
+                if (ourExtractor != null)
+                {
                     // See if we can find the current version in this pak
                     byte[] defaultGameIni = ourExtractor.ReadRaw("Astro/Config/DefaultGame.ini");
                     if (defaultGameIni != null && defaultGameIni.Length > 0)
@@ -234,8 +233,9 @@ namespace AstroModIntegrator
                     {
                         foreach (string mapPath in MapPaths)
                         {
-                            byte[] mapPathData = FindFile(mapPath, ourExtractor);
-                            if (mapPathData != null) CreatedPakData[mapPath] = levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), mapPathData).ToArray();
+                            byte[] mapPathData1 = FindFile(mapPath, ourExtractor);
+                            byte[] mapPathData2 = FindFile(Path.ChangeExtension(mapPath, ".uexp"), ourExtractor);
+                            if (mapPathData1 != null && mapPathData2 != null) IntegratorUtils.SplitExportFiles(levelBaker.Bake(newPersistentActors.ToArray(), newTrailheads.ToArray(), IntegratorUtils.Concatenate(mapPathData1, mapPathData2)), mapPath, CreatedPakData);
                         }
                     }
 
@@ -244,11 +244,12 @@ namespace AstroModIntegrator
                     {
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
-                        byte[] actorData = FindFile(establishedPath, ourExtractor);
-                        if (actorData == null) continue;
+                        byte[] actorData1 = FindFile(establishedPath, ourExtractor);
+                        byte[] actorData2 = FindFile(Path.ChangeExtension(establishedPath, ".uexp"), ourExtractor);
+                        if (actorData1 == null || actorData2 == null) continue;
                         try
                         {
-                            CreatedPakData[establishedPath] = actorBaker.Bake(entry.Value.ToArray(), actorData).ToArray();
+                            IntegratorUtils.SplitExportFiles(actorBaker.Bake(entry.Value.ToArray(), IntegratorUtils.Concatenate(actorData1, actorData2)), establishedPath, CreatedPakData);
                         }
                         catch (Exception ex)
                         {
@@ -261,11 +262,12 @@ namespace AstroModIntegrator
                     {
                         string establishedPath = entry.Key.ConvertGamePathToAbsolutePath();
 
-                        byte[] actorData = FindFile(establishedPath, ourExtractor);
-                        if (actorData == null) continue;
+                        byte[] actorData1 = FindFile(establishedPath, ourExtractor);
+                        byte[] actorData2 = FindFile(Path.ChangeExtension(establishedPath, ".uexp"), ourExtractor);
+                        if (actorData1 == null || actorData2 == null) continue;
                         try
                         {
-                            CreatedPakData[establishedPath] = itemListBaker.Bake(entry.Value, actorData).ToArray();
+                            IntegratorUtils.SplitExportFiles(itemListBaker.Bake(entry.Value, IntegratorUtils.Concatenate(actorData1, actorData2)), establishedPath, CreatedPakData);
                         }
                         catch (Exception ex)
                         {

@@ -15,21 +15,17 @@ namespace AstroModIntegrator
 
         }
 
-        public MemoryStream Bake(Dictionary<string, List<string>> newItems, byte[] superRawData)
+        public UAsset Bake(Dictionary<string, List<string>> newItems, byte[] superRawData)
         {
-            BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
-            AssetWriter y = new AssetWriter
-            {
-                WillStoreOriginalCopyInMemory = true, WillWriteSectionSix = true, data = new AssetReader()
-            };
-            y.data.Read(yReader);
-            y.OriginalCopy = superRawData;
+            UAsset y = new UAsset(IntegratorUtils.EngineVersion);
+            y.UseSeparateBulkDataFiles = true;
+            y.Read(new AssetBinaryReader(new MemoryStream(superRawData), y));
 
             // Find some categories
             Dictionary<string, List<ArrayPropertyData>> itemTypesProperty = new Dictionary<string, List<ArrayPropertyData>>();
-            for (int cat = 0; cat < y.data.categories.Count; cat++)
+            for (int cat = 0; cat < y.Exports.Count; cat++)
             {
-                if (y.data.categories[cat] is NormalCategory normalCat)
+                if (y.Exports[cat] is NormalExport normalCat)
                 {
                     for (int i = 0; i < normalCat.Data.Count; i++)
                     {
@@ -41,10 +37,10 @@ namespace AstroModIntegrator
                                 string[] tData = entry.Key.Split(new char[] { '.' });
                                 string catName = tData[0].ToLower();
                                 arrName = tData[1];
-                                if (y.data.GetHeaderReference(y.data.GetLinkReference(normalCat.ReferenceData.connection)).ToLower() != catName) continue;
+                                if ((normalCat.ClassIndex.IsImport() ? normalCat.ClassIndex.ToImport(y).ObjectName.Value.Value : string.Empty).ToLower() != catName) continue;
                             }
 
-                            if (normalCat.Data[i].Name.Equals(arrName) && normalCat.Data[i] is ArrayPropertyData)
+                            if (normalCat.Data[i].Name.Value.Value.Equals(arrName) && normalCat.Data[i] is ArrayPropertyData)
                             {
                                 if (!itemTypesProperty.ContainsKey(entry.Key)) itemTypesProperty.Add(entry.Key, new List<ArrayPropertyData>());
                                 itemTypesProperty[entry.Key].Add((ArrayPropertyData)normalCat.Data[i]);
@@ -70,7 +66,7 @@ namespace AstroModIntegrator
                         softClassName = tData[1];
                     }
 
-                    int bigNewLink = 0;
+                    FPackageIndex bigNewLink = FPackageIndex.FromRawIndex(0);
 
                     for (int prop = 0; prop < itemTypesProperty[itemPaths.Key].Count; prop++)
                     {
@@ -78,39 +74,39 @@ namespace AstroModIntegrator
                         PropertyData[] usArrData = currentItemTypesProperty.Value;
                         int oldLen = usArrData.Length;
                         Array.Resize(ref usArrData, oldLen + 1);
-                        switch (currentItemTypesProperty.ArrayType)
+                        switch (currentItemTypesProperty.ArrayType.Value.Value)
                         {
                             case "ObjectProperty":
-                                if (bigNewLink >= 0)
+                                if (bigNewLink.Index == 0)
                                 {
-                                    y.data.AddHeaderReference(realName);
-                                    y.data.AddHeaderReference(className);
-                                    Link newLink = new Link("/Script/Engine", "BlueprintGeneratedClass", y.data.AddLink("/Script/CoreUObject", "Package", 0, realName).Index, className, y.data);
-                                    bigNewLink = y.data.AddLink(newLink);
+                                    y.AddNameReference(new FString(realName));
+                                    y.AddNameReference(new FString(className));
+                                    Import newLink = new Import("/Script/Engine", "BlueprintGeneratedClass", y.AddImport(new Import("/Script/CoreUObject", "Package", FPackageIndex.FromRawIndex(0), realName)), className);
+                                    bigNewLink = y.AddImport(newLink);
                                 }
 
-                                usArrData[oldLen] = new ObjectPropertyData(currentItemTypesProperty.Name, y.data)
+                                usArrData[oldLen] = new ObjectPropertyData(currentItemTypesProperty.Name)
                                 {
-                                    LinkValue = bigNewLink
+                                    Value = bigNewLink
                                 };
                                 itemTypesProperty[itemPaths.Key][prop].Value = usArrData;
                                 break;
                             case "SoftObjectProperty":
-                                y.data.AddHeaderReference(realName);
-                                y.data.AddHeaderReference(realName + "." + softClassName);
-                                usArrData[oldLen] = new SoftObjectPropertyData(currentItemTypesProperty.Name, y.data)
+                                y.AddNameReference(new FString(realName));
+                                y.AddNameReference(new FString(realName + "." + softClassName));
+                                usArrData[oldLen] = new SoftObjectPropertyData(currentItemTypesProperty.Name)
                                 {
-                                    Value = realName + "." + softClassName,
-                                    Value2 = 0
+                                    Value = new FName(realName + "." + softClassName),
                                 };
                                 itemTypesProperty[itemPaths.Key][prop].Value = usArrData;
                                 break;
                         }
+                        currentItemTypesProperty.Value = usArrData;
                     }
                 }
             }
 
-            return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
+            return y;
         }
     }
 }

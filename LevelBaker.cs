@@ -23,17 +23,18 @@ namespace AstroModIntegrator
     {
         private PakExtractor Extractor;
         private ModIntegrator ParentIntegrator;
-        private readonly CategoryReference refData1B; // Actor template
-        private readonly CategoryReference refData2B; // SceneComponent
+        private readonly Export refData1B; // Actor template
+        private readonly Export refData2B; // SceneComponent
 
         public LevelBaker(PakExtractor extractor, ModIntegrator integrator)
         {
             Extractor = extractor;
             ParentIntegrator = integrator;
 
-            AssetReader y = new AssetReader(new BinaryReader(new MemoryStream(Properties.Resources.LevelTemplate)));
-            refData1B = y.categories[2].ReferenceData;
-            refData2B = y.categories[11].ReferenceData;
+            UAsset y = new UAsset(IntegratorUtils.EngineVersion);
+            y.Read(new AssetBinaryReader(new MemoryStream(Properties.Resources.LevelTemplate), y));
+            refData1B = y.Exports[2];
+            refData2B = y.Exports[11];
         }
 
         /*
@@ -45,30 +46,26 @@ namespace AstroModIntegrator
             5. Create the new Actor_C category, set its Linkage to the Level category, set the garbage1 to 0 (maybe random number idk), DefaultSceneRoot & RootComponent = the matching SceneComponent
         */
 
-        public MemoryStream Bake(string[] newComponents, string[] newTrailheads, byte[] superRawData)
+        public UAsset Bake(string[] newComponents, string[] newTrailheads, byte[] superRawData)
         {
-            BinaryReader yReader = new BinaryReader(new MemoryStream(superRawData));
-            AssetWriter y = new AssetWriter
-            {
-                WillStoreOriginalCopyInMemory = true, WillWriteSectionSix = true, data = new AssetReader()
-            };
-            y.data.Read(yReader);
-            y.OriginalCopy = superRawData;
+            UAsset y = new UAsset(IntegratorUtils.EngineVersion);
+            y.UseSeparateBulkDataFiles = true;
+            y.Read(new AssetBinaryReader(new MemoryStream(superRawData), y));
 
             // Missions
             if (newTrailheads.Length > 0)
             {
-                for (int cat = 0; cat < y.data.categories.Count; cat++)
+                for (int cat = 0; cat < y.Exports.Count; cat++)
                 {
-                    if (y.data.categories[cat] is NormalCategory normalCat)
+                    if (y.Exports[cat] is NormalExport normalCat)
                     {
-                        if (y.data.GetHeaderReference(y.data.GetLinkReference(normalCat.ReferenceData.connection)) != "AstroSettings") continue;
+                        if ((normalCat.ClassIndex.IsImport() ? normalCat.ClassIndex.ToImport(y).ObjectName.Value.Value : string.Empty) != "AstroSettings") continue;
 
                         for (int i = 0; i < normalCat.Data.Count; i++)
                         {
-                            if (normalCat.Data[i].Name == "MissionData" && normalCat.Data[i] is ArrayPropertyData arrDat && arrDat.ArrayType == "ObjectProperty")
+                            if (normalCat.Data[i].Name.Value.Value == "MissionData" && normalCat.Data[i] is ArrayPropertyData arrDat && arrDat.ArrayType.Value.Value == "ObjectProperty")
                             {
-                                y.data.AddHeaderReference("AstroMissionDataAsset");
+                                y.AddNameReference(new FString("AstroMissionDataAsset"));
 
                                 PropertyData[] usArrData = arrDat.Value;
                                 int oldLen = usArrData.Length;
@@ -78,14 +75,14 @@ namespace AstroModIntegrator
                                     string realName = newTrailheads[j];
                                     string softClassName = Path.GetFileNameWithoutExtension(realName);
 
-                                    y.data.AddHeaderReference(realName);
-                                    y.data.AddHeaderReference(softClassName);
-                                    Link newLink = new Link("/Script/Astro", "AstroMissionDataAsset", y.data.AddLink("/Script/CoreUObject", "Package", 0, realName).Index, softClassName, y.data);
-                                    int bigNewLink = y.data.AddLink(newLink);
+                                    y.AddNameReference(new FString(realName));
+                                    y.AddNameReference(new FString(softClassName));
+                                    Import newLink = new Import("/Script/Astro", "AstroMissionDataAsset", y.AddImport(new Import("/Script/CoreUObject", "Package", FPackageIndex.FromRawIndex(0), realName)), softClassName);
+                                    FPackageIndex bigNewLink = y.AddImport(newLink);
 
-                                    usArrData[oldLen + j] = new ObjectPropertyData(arrDat.Name, y.data)
+                                    usArrData[oldLen + j] = new ObjectPropertyData(arrDat.Name)
                                     {
-                                        LinkValue = bigNewLink
+                                        Value = bigNewLink
                                     };
                                 }
                                 arrDat.Value = usArrData;
@@ -97,14 +94,14 @@ namespace AstroModIntegrator
                 }
             }
 
-            if (newComponents.Length == 0) return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
+            if (newComponents.Length == 0) return y;
 
-            LevelCategory levelCategory = null;
+            LevelExport levelCategory = null;
             int levelLocation = -1;
-            for (int i = 0; i < y.data.categories.Count; i++)
+            for (int i = 0; i < y.Exports.Count; i++)
             {
-                Category baseUs = y.data.categories[i];
-                if (baseUs is LevelCategory levelUs)
+                Export baseUs = y.Exports[i];
+                if (baseUs is LevelExport levelUs)
                 {
                     levelCategory = levelUs;
                     levelLocation = i;
@@ -114,18 +111,18 @@ namespace AstroModIntegrator
             if (levelLocation < 0) throw new FormatException("Unable to find Level category");
 
             // Preliminary header reference additions
-            y.data.AddHeaderReference("bHidden");
-            y.data.AddHeaderReference("bNetAddressable");
-            y.data.AddHeaderReference("CreationMethod");
-            y.data.AddHeaderReference("EComponentCreationMethod");
-            y.data.AddHeaderReference("EComponentCreationMethod::SimpleConstructionScript");
-            y.data.AddHeaderReference("BlueprintCreatedComponents");
-            y.data.AddHeaderReference("AttachParent");
-            y.data.AddHeaderReference("RootComponent");
+            y.AddNameReference(new FString("bHidden"));
+            y.AddNameReference(new FString("bNetAddressable"));
+            y.AddNameReference(new FString("CreationMethod"));
+            y.AddNameReference(new FString("EComponentCreationMethod"));
+            y.AddNameReference(new FString("EComponentCreationMethod::SimpleConstructionScript"));
+            y.AddNameReference(new FString("BlueprintCreatedComponents"));
+            y.AddNameReference(new FString("AttachParent"));
+            y.AddNameReference(new FString("RootComponent"));
 
             foreach (string componentPathRaw in newComponents)
             {
-                CategoryReference refData1 = new CategoryReference(refData1B);
+                Export refData1 = (Export)refData1B.Clone();
                 string componentPath = componentPathRaw;
                 string component = Path.GetFileNameWithoutExtension(componentPathRaw);
                 if (componentPathRaw.Contains("."))
@@ -134,35 +131,44 @@ namespace AstroModIntegrator
                     componentPath = tData[0];
                     component = tData[1].Remove(tData[1].Length - 2);
                 }
-                y.data.AddHeaderReference(componentPath);
-                y.data.AddHeaderReference(component + "_C");
+                y.AddNameReference(new FString(componentPath));
+                y.AddNameReference(new FString(component + "_C"));
+                y.AddNameReference(new FString("Default__" + component + "_C"));
+                y.AddNameReference(new FString(component));
 
-                Link newLink = new Link("/Script/Engine", "BlueprintGeneratedClass", y.data.AddLink("/Script/CoreUObject", "Package", 0, componentPath).Index, component + "_C", y.data);
-                int bigNewLink = y.data.AddLink(newLink);
-                refData1.connection = bigNewLink;
-                refData1.typeIndex = y.data.AddHeaderReference(component);
+                Import firstLink = new Import("/Script/CoreUObject", "Package", FPackageIndex.FromRawIndex(0), componentPath);
+                FPackageIndex bigFirstLink = y.AddImport(firstLink);
+                Import newLink = new Import("/Script/Engine", "BlueprintGeneratedClass", bigFirstLink, component + "_C");
+                FPackageIndex bigNewLink = y.AddImport(newLink);
+                Import newLink2 = new Import(componentPath, component + "_C", bigFirstLink, "Default__" + component + "_C");
+                FPackageIndex bigNewLink2 = y.AddImport(newLink2);
+
+                refData1.ClassIndex = bigNewLink;
+                refData1.ObjectName = new FName(component);
+                refData1.TemplateIndex = bigNewLink2;
 
                 // Note that category links are set to one more than you'd think since categories in the category list index from 1 instead of 0
 
-                refData1.garbage1 = 0;
-                refData1.link = levelLocation + 1; // Level category
+                refData1.OuterIndex = FPackageIndex.FromRawIndex(levelLocation + 1); // Level category
 
                 // First we see if we can find the actual asset it's referring to
                 List<SCS_Node> allBlueprintCreatedComponents = new List<SCS_Node>();
-                byte[] foundData = ParentIntegrator.SearchInAllPaksForPath(componentPath.ConvertGamePathToAbsolutePath(), Extractor);
+                byte[] foundData1 = ParentIntegrator.SearchInAllPaksForPath(componentPath.ConvertGamePathToAbsolutePath(), Extractor);
+                byte[] foundData2 = ParentIntegrator.SearchInAllPaksForPath(Path.ChangeExtension(componentPath.ConvertGamePathToAbsolutePath(), ".uexp"), Extractor);
+                byte[] foundData = null; if (foundData1 != null && foundData2 != null) foundData = IntegratorUtils.Concatenate(foundData1, foundData2);
                 if (foundData != null && foundData.Length > 0)
                 {
                     // If we can find the asset, then we read the asset and hop straight to the SimpleConstructionScript
-                    AssetReader foundDataReader = new AssetReader();
-                    foundDataReader.Read(new BinaryReader(new MemoryStream(foundData)), null, null);
+                    UAsset foundDataReader = new UAsset(IntegratorUtils.EngineVersion);
+                    foundDataReader.Read(new AssetBinaryReader(new MemoryStream(foundData), foundDataReader));
 
                     int scsLocation = -1;
-                    for (int i = 0; i < foundDataReader.categories.Count; i++)
+                    for (int i = 0; i < foundDataReader.Exports.Count; i++)
                     {
-                        Category foundCategory = foundDataReader.categories[i];
-                        if (foundCategory is NormalCategory normalFoundCategory)
+                        Export foundCategory = foundDataReader.Exports[i];
+                        if (foundCategory is NormalExport normalFoundCategory)
                         {
-                            string nm = foundDataReader.GetHeaderReference(foundDataReader.GetLinkReference(normalFoundCategory.ReferenceData.connection));
+                            string nm = normalFoundCategory.ClassIndex.IsImport() ? normalFoundCategory.ClassIndex.ToImport(y).ObjectName.Value.Value : string.Empty;
                             switch (nm)
                             {
                                 case "SimpleConstructionScript":
@@ -175,15 +181,15 @@ namespace AstroModIntegrator
                     if (scsLocation >= 0)
                     {
                         List<int> knownNodeCategories = new List<int>();
-                        NormalCategory scsCategory = (NormalCategory)foundDataReader.categories[scsLocation];
+                        NormalExport scsCategory = (NormalExport)foundDataReader.Exports[scsLocation];
                         for (int j = 0; j < scsCategory.Data.Count; j++)
                         {
                             PropertyData bit = scsCategory.Data[j];
-                            if (bit is ArrayPropertyData arrBit && arrBit.ArrayType == "ObjectProperty" && bit.Name == "AllNodes")
+                            if (bit is ArrayPropertyData arrBit && arrBit.ArrayType.Value.Value == "ObjectProperty" && bit.Name.Value.Value == "AllNodes")
                             {
                                 foreach (ObjectPropertyData objProp in arrBit.Value)
                                 {
-                                    if (objProp.LinkValue > 0) knownNodeCategories.Add(objProp.LinkValue);
+                                    if (objProp.Value.Index > 0) knownNodeCategories.Add(objProp.Value.Index);
                                 }
                             }
                         }
@@ -191,34 +197,34 @@ namespace AstroModIntegrator
                         Dictionary<int, int> knownParents = new Dictionary<int, int>();
                         foreach (int knownNodeCategory in knownNodeCategories)
                         {
-                            Category knownCat = foundDataReader.categories[knownNodeCategory - 1];
-                            string nm = foundDataReader.GetHeaderReference(foundDataReader.GetLinkReference(knownCat.ReferenceData.connection));
+                            Export knownCat = foundDataReader.Exports[knownNodeCategory - 1];
+                            string nm = knownCat.ClassIndex.IsImport() ? knownCat.ClassIndex.ToImport(y).ObjectName.Value.Value : string.Empty;
                             if (nm != "SCS_Node") continue;
-                            if (knownCat is NormalCategory knownNormalCat)
+                            if (knownCat is NormalExport knownNormalCat)
                             {
                                 SCS_Node newSCS = new SCS_Node();
                                 newSCS.InternalVariableName = "Unknown";
                                 newSCS.OriginalCategory = knownNodeCategory;
-                                Link knownTypeLink1 = null;
-                                Link knownTypeLink2 = null;
+                                Import knownTypeLink1 = null;
+                                Import knownTypeLink2 = null;
 
                                 foreach (PropertyData knownNormalCatProp in knownNormalCat.Data)
                                 {
-                                    switch (knownNormalCatProp.Name)
+                                    switch (knownNormalCatProp.Name.Value.Value)
                                     {
                                         case "InternalVariableName":
-                                            if (knownNormalCatProp is NamePropertyData) newSCS.InternalVariableName = ((NamePropertyData)knownNormalCatProp).Value;
+                                            if (knownNormalCatProp is NamePropertyData) newSCS.InternalVariableName = ((NamePropertyData)knownNormalCatProp).Value.Value.Value;
                                             break;
                                         case "ComponentClass":
-                                            if (knownNormalCatProp is ObjectPropertyData) knownTypeLink1 = ((ObjectPropertyData)knownNormalCatProp).Value;
-                                            knownTypeLink2 = foundDataReader.GetLinkAt(knownTypeLink1.Linkage);
+                                            if (knownNormalCatProp is ObjectPropertyData) knownTypeLink1 = ((ObjectPropertyData)knownNormalCatProp).ToImport(foundDataReader);
+                                            knownTypeLink2 = knownTypeLink1.OuterIndex.ToImport(foundDataReader);
                                             break;
                                         case "ChildNodes":
-                                            if (knownNormalCatProp is ArrayPropertyData arrData2 && arrData2.ArrayType == "ObjectProperty")
+                                            if (knownNormalCatProp is ArrayPropertyData arrData2 && arrData2.ArrayType.Value.Value == "ObjectProperty")
                                             {
                                                 foreach (ObjectPropertyData knownNormalCatPropChildren in arrData2.Value)
                                                 {
-                                                    knownParents.Add(knownNormalCatPropChildren.LinkValue, knownNodeCategory);
+                                                    knownParents.Add(knownNormalCatPropChildren.Value.Index, knownNodeCategory);
                                                 }
                                             }
                                             break;
@@ -227,23 +233,13 @@ namespace AstroModIntegrator
 
                                 if (knownTypeLink1 != null && knownTypeLink2 != null)
                                 {
-                                    Link prospectiveLink2 = new Link();
-                                    prospectiveLink2.Base = (ulong)y.data.AddHeaderReference(foundDataReader.GetHeaderReference((int)knownTypeLink2.Base));
-                                    prospectiveLink2.Class = (ulong)y.data.AddHeaderReference(foundDataReader.GetHeaderReference((int)knownTypeLink2.Class));
-                                    prospectiveLink2.Linkage = knownTypeLink2.Linkage;
-                                    prospectiveLink2.Property = (ulong)y.data.AddHeaderReference(foundDataReader.GetHeaderReference((int)knownTypeLink2.Property));
+                                    Import prospectiveLink2 = knownTypeLink2;
+                                    int addedLink = y.SearchForImport(prospectiveLink2.ClassPackage, prospectiveLink2.ClassName, prospectiveLink2.OuterIndex, prospectiveLink2.ObjectName);
+                                    if (addedLink >= 0) addedLink = y.AddImport(prospectiveLink2).Index;
 
-                                    int addedLink = y.data.SearchForLink(prospectiveLink2.Base, prospectiveLink2.Class, prospectiveLink2.Linkage, prospectiveLink2.Property);
-                                    if (addedLink >= 0) addedLink = y.data.AddLink(prospectiveLink2);
-
-                                    Link prospectiveLink1 = new Link();
-                                    prospectiveLink1.Base = (ulong)y.data.AddHeaderReference(foundDataReader.GetHeaderReference((int)knownTypeLink1.Base));
-                                    prospectiveLink1.Class = (ulong)y.data.AddHeaderReference(foundDataReader.GetHeaderReference((int)knownTypeLink1.Class));
-                                    prospectiveLink1.Property = (ulong)y.data.AddHeaderReference(foundDataReader.GetHeaderReference((int)knownTypeLink1.Property));
-                                    prospectiveLink1.Linkage = addedLink;
-
-                                    int newTypeLink = y.data.SearchForLink(prospectiveLink1.Base, prospectiveLink1.Class, prospectiveLink1.Linkage, prospectiveLink1.Property);
-                                    if (newTypeLink >= 0) newTypeLink = y.data.AddLink(prospectiveLink1);
+                                    Import prospectiveLink1 = knownTypeLink1;
+                                    int newTypeLink = y.SearchForImport(prospectiveLink1.ClassPackage, prospectiveLink1.ClassName, prospectiveLink1.OuterIndex, prospectiveLink1.ObjectName);
+                                    if (newTypeLink >= 0) newTypeLink = y.AddImport(prospectiveLink1).Index;
                                     newSCS.TypeLink = newTypeLink;
                                 }
 
@@ -259,7 +255,7 @@ namespace AstroModIntegrator
                 }
 
                 // Then we add all our child components
-                int templateCategoryPointer = y.data.categories.Count + allBlueprintCreatedComponents.Count + 1;
+                int templateCategoryPointer = y.Exports.Count + allBlueprintCreatedComponents.Count + 1;
 
                 List<ObjectPropertyData> BlueprintCreatedComponentsSerializedList = new List<ObjectPropertyData>();
                 List<ObjectPropertyData> AttachParentDueForCorrection = new List<ObjectPropertyData>();
@@ -267,62 +263,65 @@ namespace AstroModIntegrator
                 Dictionary<int, int> OldCatToNewCat = new Dictionary<int, int>();
                 foreach (SCS_Node blueprintCreatedComponent in allBlueprintCreatedComponents)
                 {
-                    CategoryReference refData2 = new CategoryReference(refData2B);
+                    Export refData2 = (Export)refData2B.Clone();
 
-                    refData2.connection = blueprintCreatedComponent.TypeLink;
-                    refData2.typeIndex = y.data.AddHeaderReference(blueprintCreatedComponent.InternalVariableName);
-                    refData2.garbage1 = 0; // unknown if this needs to be randomized or something
-                    refData2.link = templateCategoryPointer; // Template category
+                    refData2.ClassIndex = FPackageIndex.FromRawIndex(blueprintCreatedComponent.TypeLink);
+                    y.AddNameReference(new FString(blueprintCreatedComponent.InternalVariableName));
+                    refData2.ObjectName = new FName(blueprintCreatedComponent.InternalVariableName);
+                    refData2.OuterIndex = FPackageIndex.FromRawIndex(templateCategoryPointer); // Template category
 
                     var determinedPropData = new List<PropertyData>
                     {
-                        new BoolPropertyData("bNetAddressable", y.data)
+                        new BoolPropertyData(new FName("bNetAddressable"))
                         {
                             Value = true,
                         },
-                        new EnumPropertyData("CreationMethod", y.data)
+                        new EnumPropertyData(new FName("CreationMethod"))
                         {
-                            EnumType = "EComponentCreationMethod",
-                            Value = "EComponentCreationMethod::SimpleConstructionScript"
+                            EnumType = new FName("EComponentCreationMethod"),
+                            Value = new FName("EComponentCreationMethod::SimpleConstructionScript")
                         }
                     };
 
                     if (blueprintCreatedComponent.AttachParent >= 0)
                     {
-                        var nextOPD = new ObjectPropertyData("AttachParent", y.data)
+                        var nextOPD = new ObjectPropertyData(new FName("AttachParent"))
                         {
-                            LinkValue = blueprintCreatedComponent.AttachParent
+                            Value = FPackageIndex.FromRawIndex(blueprintCreatedComponent.AttachParent)
                         };
                         AttachParentDueForCorrection.Add(nextOPD);
                         determinedPropData.Add(nextOPD);
                     }
 
-                    y.data.categories.Add(new NormalCategory(determinedPropData, refData2, y.data, new byte[4] { 0, 0, 0, 0 }));
-                    BlueprintCreatedComponentsSerializedList.Add(new ObjectPropertyData("BlueprintCreatedComponents", y.data)
+                    NormalExport sceneCat = refData2.ConvertToChildExport<NormalExport>();
+                    sceneCat.Extras = new byte[4] { 0, 0, 0, 0 };
+                    sceneCat.Data = determinedPropData;
+                    y.Exports.Add(sceneCat);
+                    BlueprintCreatedComponentsSerializedList.Add(new ObjectPropertyData(new FName("BlueprintCreatedComponents"))
                     {
-                        LinkValue = y.data.categories.Count
+                        Value = FPackageIndex.FromRawIndex(y.Exports.Count)
                     });
-                    NodeNameToCatIndex.Add(blueprintCreatedComponent.InternalVariableName, y.data.categories.Count);
-                    OldCatToNewCat.Add(blueprintCreatedComponent.OriginalCategory, y.data.categories.Count);
+                    NodeNameToCatIndex.Add(blueprintCreatedComponent.InternalVariableName, y.Exports.Count);
+                    OldCatToNewCat.Add(blueprintCreatedComponent.OriginalCategory, y.Exports.Count);
 
-                    y.data.AddLink(new Link((ulong)y.data.AddHeaderReference("/Script/Engine"), y.data.GetLinkAt(blueprintCreatedComponent.TypeLink).Property, refData1.connection, (ulong)y.data.AddHeaderReference(blueprintCreatedComponent.InternalVariableName + "_GEN_VARIABLE")));
+                    y.AddImport(new Import("/Script/Engine", FPackageIndex.FromRawIndex(blueprintCreatedComponent.TypeLink).ToImport(y).ObjectName.Value.Value, refData1.ClassIndex, blueprintCreatedComponent.InternalVariableName + "_GEN_VARIABLE"));
                 }
 
                 foreach (ObjectPropertyData attachParentCorrecting in AttachParentDueForCorrection)
                 {
-                    attachParentCorrecting.LinkValue = OldCatToNewCat[attachParentCorrecting.LinkValue];
+                    attachParentCorrecting.Value = FPackageIndex.FromRawIndex(OldCatToNewCat[attachParentCorrecting.Value.Index]);
                 }
 
                 // Then we add the template category
                 var templateDeterminedPropData = new List<PropertyData>
                 {
-                    new BoolPropertyData("bHidden", y.data)
+                    new BoolPropertyData(new FName("bHidden"))
                     {
                         Value = true
                     },
-                    new ArrayPropertyData("BlueprintCreatedComponents", y.data)
+                    new ArrayPropertyData(new FName("BlueprintCreatedComponents"))
                     {
-                        ArrayType = "ObjectProperty",
+                        ArrayType = new FName("ObjectProperty"),
                         Value = BlueprintCreatedComponentsSerializedList.ToArray()
                     }
                 };
@@ -331,24 +330,31 @@ namespace AstroModIntegrator
                 {
                     if (entry.Key == "DefaultSceneRoot")
                     {
-                        templateDeterminedPropData.Add(new ObjectPropertyData("RootComponent", y.data)
+                        templateDeterminedPropData.Add(new ObjectPropertyData(new FName("RootComponent"))
                         {
-                            LinkValue = entry.Value
+                            Value = FPackageIndex.FromRawIndex(entry.Value)
                         });
                     }
-                    templateDeterminedPropData.Add(new ObjectPropertyData(entry.Key, y.data)
+                    templateDeterminedPropData.Add(new ObjectPropertyData(new FName(entry.Key))
                     {
-                        LinkValue = entry.Value
+                        Value = FPackageIndex.FromRawIndex(entry.Value)
                     });
                 }
 
-                y.data.categories.Add(new NormalCategory(templateDeterminedPropData, refData1, y.data, new byte[4] { 0, 0, 0, 0 }));
+                NormalExport lastExport = refData1.ConvertToChildExport<NormalExport>();
+                lastExport.SerializationBeforeCreateDependencies.Add(bigNewLink);
+                lastExport.SerializationBeforeCreateDependencies.Add(bigNewLink2);
+                lastExport.CreateBeforeCreateDependencies.Add(FPackageIndex.FromRawIndex(levelLocation + 1));
+                lastExport.Extras = new byte[4] { 0, 0, 0, 0 };
+                lastExport.Data = templateDeterminedPropData;
+                y.Exports.Add(lastExport);
 
                 // Add the template category to the level category
-                levelCategory.IndexData.Add(y.data.categories.Count);
+                levelCategory.IndexData.Add(y.Exports.Count);
+                levelCategory.CreateBeforeSerializationDependencies.Add(FPackageIndex.FromRawIndex(y.Exports.Count));
             }
 
-            return y.WriteData(new BinaryReader(new MemoryStream(y.OriginalCopy)));
+            return y;
         }
     }
 }

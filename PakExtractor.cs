@@ -10,6 +10,42 @@ using UAssetAPI;
 
 namespace AstroModIntegrator
 {
+    public enum CompressionMethod
+    {
+        NONE,
+        ZLIB,
+        GZIP,
+        CUSTOM // Also "Oodle"
+    }
+
+    [Flags]
+    public enum RecordFlags : uint
+    {
+        Flag_None = 0x00,
+        Flag_Encrypted = 0x01,
+        Flag_Deleted = 0x02
+    }
+
+    public enum PakVersion
+    {
+        PakFile_Version_Initial = 1,
+        PakFile_Version_NoTimestamps = 2,
+        PakFile_Version_CompressionEncryption = 3,
+        PakFile_Version_IndexEncryption = 4,
+        PakFile_Version_RelativeChunkOffsets = 5,
+        PakFile_Version_DeleteRecords = 6,
+        PakFile_Version_EncryptionKeyGuid = 7,
+        PakFile_Version_FNameBasedCompressionMethod = 8,
+        PakFile_Version_FrozenIndex = 9,
+        PakFile_Version_PathHashIndex = 10,
+        PakFile_Version_Fnv64BugFix = 11,
+
+
+        PakFile_Version_Last,
+        PakFile_Version_Invalid,
+        PakFile_Version_Latest = PakFile_Version_Last - 1
+    }
+
     public struct Block
     {
         public long Start;
@@ -29,12 +65,12 @@ namespace AstroModIntegrator
         public long fileSize;
         public long sizeDecompressed;
         public CompressionMethod compressionMethod;
-        public bool isEncrypted;
+        public RecordFlags Flags;
         public uint compressionBlockSize;
         public List<Block> compressionBlocks;
         public byte[] dataHash;
 
-        public void Read(BinaryReader reader, uint fileVersion, bool includesHeader)
+        public void Read(BinaryReader reader, PakVersion fileVersion, bool includesHeader)
         {
             if (includesHeader) fileName = reader.ReadUString();
             offset = reader.ReadInt64();
@@ -42,14 +78,14 @@ namespace AstroModIntegrator
             sizeDecompressed = reader.ReadInt64();
             compressionMethod = (CompressionMethod)reader.ReadUInt32();
 
-            if (fileVersion <= 1)
+            if (fileVersion <= PakVersion.PakFile_Version_Initial)
             {
                 ulong timestamp = reader.ReadUInt64();
             }
 
             dataHash = reader.ReadBytes(20); // sha1 hash
 
-            if (fileVersion >= 3)
+            if (fileVersion >= PakVersion.PakFile_Version_CompressionEncryption)
             {
                 if (compressionMethod != CompressionMethod.NONE)
                 {
@@ -63,7 +99,7 @@ namespace AstroModIntegrator
                     }
                 }
 
-                isEncrypted = reader.ReadBoolean();
+                Flags = (RecordFlags)reader.ReadByte();
                 compressionBlockSize = reader.ReadUInt32(); // max size of each block
             }
         }
@@ -133,14 +169,6 @@ namespace AstroModIntegrator
         }
     }
 
-    public enum CompressionMethod
-    {
-        NONE,
-        ZLIB,
-        BIAS_MEMORY,
-        BIAS_SPEED
-    }
-
     public class MalformattedFileException : FormatException
     {
         public MalformattedFileException(string exText) : base(exText) { }
@@ -157,7 +185,7 @@ namespace AstroModIntegrator
     public class PakExtractor
     {
         internal static uint UE4_PAK_MAGIC = 0x5A6F12E1;
-        private uint fileVersion;
+        private PakVersion fileVersion;
         private BinaryReader reader;
         public Dictionary<string, long> PathToOffset;
 
@@ -181,7 +209,7 @@ namespace AstroModIntegrator
                 if (magic != UE4_PAK_MAGIC) throw new InvalidFileTypeException("Invalid file format, magic = " + magic);
             }
 
-            fileVersion = reader.ReadUInt32();
+            fileVersion = (PakVersion)reader.ReadUInt32();
             ulong indexOffset = reader.ReadUInt64();
             ulong indexSize = reader.ReadUInt64();
 
@@ -189,7 +217,7 @@ namespace AstroModIntegrator
             reader.BaseStream.Seek(0, SeekOrigin.Begin);
             var firstRec = new Record();
             firstRec.Read(reader, fileVersion, false);
-            if (firstRec.isEncrypted) throw new NotImplementedException("Encryption is not supported");
+            if (firstRec.Flags.HasFlag(RecordFlags.Flag_Encrypted)) throw new NotImplementedException("Encryption is not supported");
 
             // Start reading the proper index
             reader.BaseStream.Seek((long)indexOffset, SeekOrigin.Begin);
@@ -237,7 +265,7 @@ namespace AstroModIntegrator
                     {
                         long blockOffset = block.Start;
                         long blockSize = block.Size;
-                        if (fileVersion == 8) // Relative offset
+                        if (fileVersion >= PakVersion.PakFile_Version_RelativeChunkOffsets) // Relative offset
                         {
                             reader.BaseStream.Seek((long)blockOffset + fullOffset, SeekOrigin.Begin);
                         }
