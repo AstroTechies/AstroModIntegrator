@@ -82,11 +82,13 @@ namespace AstroModIntegrator
                 {
                     Value = new FString(mod.AstroBuild?.ToString() ?? "", Encoding.ASCII),
                 });
+                y.AddNameReference(new FString("SyncMode"));
+                y.AddNameReference(new FString(codedSyncMode));
                 rows.Add(new BytePropertyData(columns[5])
                 {
-                    ByteType = BytePropertyType.Long,
-                    EnumType = y.AddNameReference(new FString("SyncMode")),
-                    Value = y.AddNameReference(new FString(codedSyncMode))
+                    ByteType = BytePropertyType.FName,
+                    EnumType = new FName("SyncMode"),
+                    EnumValue = new FName(codedSyncMode)
                 });
                 rows.Add(new StrPropertyData(columns[6])
                 {
